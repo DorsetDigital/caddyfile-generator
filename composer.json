@@ -1,0 +1,22 @@
+{
+  "name": "dorsetdigital/caddyfile-generator",
+  "description": "Automatic Caddyfile generator",
+  "type": "silverstripe-vendormodule",
+  "minimum-stability": "dev",
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "Tim Burt",
+      "email": "tim@dorset-digital.net"
+    }
+  ],
+  "require": {
+  },
+  "autoload": {
+    "psr-4": {
+      "DorsetDigital\\Caddy\\": "src/"
+    }
+  },
+  "extra": {
+  }
+}
