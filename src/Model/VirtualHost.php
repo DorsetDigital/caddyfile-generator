@@ -2,6 +2,7 @@
 
 namespace DorsetDigital\Caddy\Admin;
 
+use SilverStripe\Assets\File;
 use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\DropdownField;
 use SilverStripe\Forms\TextareaField;
@@ -15,13 +16,19 @@ use SilverStripe\ORM\DataObject;
  * @property int $HostType
  * @property string $HostName
  * @property bool $EnableHTTPS
+ * @property int $TLSMethod
  * @property string $DocumentRoot
  * @property string $SiteProxy
  * @property string $RedirectTo
  * @property string $ProxyHost
+ * @property bool $EnablePHP
  * @property string $PHPVersion
  * @property int $HostRedirect
  * @property string $ManualConfig
+ * @property int $TLSKeyID
+ * @property int $TLSCertID
+ * @method \SilverStripe\Assets\File TLSKey()
+ * @method \SilverStripe\Assets\File TLSCert()
  */
 class VirtualHost extends DataObject
 {
@@ -36,6 +43,9 @@ class VirtualHost extends DataObject
         '8.1' => 9081,
         '8.2' => 9082
     ];
+    const TLS_AUTO = 0;
+    const TLS_MANUAL = 1;
+    const TLS_LOCAL = 2;
 
 
     private static $table_name = 'VirtualHost';
@@ -44,13 +54,20 @@ class VirtualHost extends DataObject
         'HostType' => 'Int',
         'HostName' => 'Varchar',
         'EnableHTTPS' => 'Boolean',
+        'TLSMethod' => 'Int',
         'DocumentRoot' => 'Varchar',
         'SiteProxy' => 'Varchar',
         'RedirectTo' => 'Varchar',
         'ProxyHost' => 'Varchar',
+        'EnablePHP' => 'Boolean',
         'PHPVersion' => 'Enum("8.1,8.2")',
         'HostRedirect' => 'Int',
         'ManualConfig' => 'Text'
+    ];
+
+    private static $has_one = [
+      'TLSKey' => File::class,
+      'TLSCert' => File::class
     ];
 
     private static $defaults = [
@@ -77,14 +94,26 @@ class VirtualHost extends DataObject
             CheckboxField::create('EnableHTTPS')
                 ->setDescription(_t(__CLASS__ . '.EnableHTTPSDesc', 'Will fetch a certificate and also enables automatic HTTPS redirection'))
                 ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end(),
+            DropdownField::create('TLSMethod', 'TLS Method', $this->getTLSModes())
+                ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end(),
+            TextareaField::create('TLSKey', 'TLS Key')->hideUnless('TLSMethod')
+                ->isEqualTo(self::TLS_MANUAL)->end(),
+            TextareaField::create('TLSCert', 'TLS Cetificate')
+                ->setDescription('Include intermediates here if needed')
+                ->hideUnless('TLSMethod')->isEqualTo(self::TLS_MANUAL)->end(),
             TextField::create('DocumentRoot')
                 ->setDescription('Relative to virtualhosts root directory, no leading or trailing slashes')
+                ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_HOST)->end(),
+            CheckboxField::create('EnablePHP', 'Enable PHP')
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_HOST)->end(),
             DropdownField::create(
                 'PHPVersion',
                 'PHP Version',
                 singleton(VirtualHost::class)->dbObject('PHPVersion')->enumValues()
-            )->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_HOST)->end(),
+            )
+                ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_HOST)
+                ->andIf('EnablePHP')->isChecked()
+                ->end(),
             DropdownField::create('HostRedirect', 'Host-level redirect', $this->getHostRedirectOpts())
                 ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)
                 ->orIf('HostType')->isEqualTo(self::HOST_TYPE_REDIRECT)->end(),
@@ -120,12 +149,22 @@ class VirtualHost extends DataObject
         ];
     }
 
+    private function getTLSModes()
+    {
+        return [
+            self::TLS_AUTO => _t(__CLASS__ . '.tlsauto', 'Automatic'),
+            self::TLS_MANUAL => _t(__CLASS__ . 'tlsmanual', 'Manual certificate'),
+            self::TLS_LOCAL => _t(__CLASS__ . '.tlslocal', 'Local / self-signed certificate')
+        ];
+    }
+
 
     public function getHostTypeName()
     {
         $types = VirtualHost::getHostTypes();
         return $types[$this->HostType];
     }
+
 
     public function validate()
     {
@@ -162,6 +201,54 @@ class VirtualHost extends DataObject
         }
 
         return $result;
+    }
+
+    /**
+     * @todo - Implement this function to return the absolute path to the key file
+     * Needs to be tied-in to the deployment process
+     * @return string
+     */
+    private function getTLSKeyFile() {
+
+    }
+
+    /**
+     * @todo - Implement this function to return the absolute path to the cert file
+     * Needs to be tied-in to the deployment process
+     * @return string
+     */
+    private function getTLSCertFile() {
+
+    }
+
+    public function getTLSConfigValue() {
+        if ($this->TLSMethod === self::TLS_LOCAL) {
+            return 'internal';
+        }
+        if ($this->TLSMethod === self::TLS_MANUAL) {
+            return $this->getTLSCertFile()." ".$this->getTLSKeyFile();
+        }
+    }
+
+    /**
+     * See if we need a TLS config block
+     * (only true if we're not in auto mode)
+     * @return bool
+     */
+    public function getNeedsTLSConfig() {
+        return $this->TLSMethod !== self::TLS_AUTO;
+    }
+
+    public function getCaddyRoot() {
+        //Build from what is in siteconfig and the host
+    }
+
+    public function getPHPRoot() {
+        //Build from what is in siteconfig and the host
+    }
+
+    public function getPHPCGIURI() {
+        //Build the URI from the host and port
     }
 
 }

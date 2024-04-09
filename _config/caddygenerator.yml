@@ -1,0 +1,7 @@
+---
+Name: caddygenerator
+---
+
+SilverStripe\SiteConfig\SiteConfig:
+  extensions:
+    - DorsetDigital\Caddy\Extension\SiteConfigExtension

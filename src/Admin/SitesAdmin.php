@@ -16,5 +16,6 @@ class SitesAdmin extends ModelAdmin
     ];
     private static $menu_title = 'VirtualHost admin';
     private static $url_segment = 'virtualhost-admin';
+    private static $menu_priority = 100;
 
 }

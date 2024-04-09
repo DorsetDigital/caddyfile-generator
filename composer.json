@@ -11,6 +11,7 @@
     }
   ],
   "require": {
+      "unclecheese/display-logic": "^3"
   },
   "autoload": {
     "psr-4": {
