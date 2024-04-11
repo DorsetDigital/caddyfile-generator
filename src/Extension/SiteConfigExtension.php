@@ -21,6 +21,7 @@ use SilverStripe\ORM\DataExtension;
  * @property string $RedisKeyPrefix
  * @property string $VirtualHostCaddyRoot
  * @property string $VirtualHostPHPRoot
+ * @property string $PHPCGIIP
  */
 class SiteConfigExtension extends DataExtension
 {
@@ -31,7 +32,8 @@ class SiteConfigExtension extends DataExtension
         'RedisPassword' => 'Varchar',
         'RedisKeyPrefix' => 'Varchar',
         'VirtualHostCaddyRoot' => 'Varchar',
-        'VirtualHostPHPRoot' => 'Varchar'
+        'VirtualHostPHPRoot' => 'Varchar',
+        'PHPCGIIP' => 'Varchar'
     ];
 
     public function updateCMSFields(FieldList $fields)
@@ -53,7 +55,8 @@ class SiteConfigExtension extends DataExtension
             TextField::create('VirtualHostCaddyRoot', 'Caddy Virtualhost root')
                 ->setDescription('Absolute path to the virtualhost root inside a Caddy instance'),
             TextField::create('VirtualHostPHPRoot', 'PHP Virtualhost root')
-                ->setDescription('Absolute path to the virtualhost root inside a PHP instance')
+                ->setDescription('Absolute path to the virtualhost root inside a PHP instance'),
+            TextField::create('PHPCGIIP', 'IP address of PHP CGI cluster')
         ]);
     }
 

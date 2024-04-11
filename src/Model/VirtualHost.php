@@ -2,12 +2,19 @@
 
 namespace DorsetDigital\Caddy\Admin;
 
+use DorsetDigital\Caddy\Helper\CaddyHelper;
 use SilverStripe\Assets\File;
 use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\DropdownField;
+use SilverStripe\Forms\HeaderField;
+use SilverStripe\Forms\LiteralField;
 use SilverStripe\Forms\TextareaField;
 use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\DataObject;
+use SilverStripe\ORM\DataObjectSchema;
+use SilverStripe\ORM\Queries\SQLUpdate;
+use SilverStripe\SiteConfig\SiteConfig;
+use SilverStripe\View\HTML;
 
 /**
  * Class \BiffBangPow\Model\VirtualHost
@@ -25,6 +32,7 @@ use SilverStripe\ORM\DataObject;
  * @property string $PHPVersion
  * @property int $HostRedirect
  * @property string $ManualConfig
+ * @property string $BlockPreview
  * @property int $TLSKeyID
  * @property int $TLSCertID
  * @method \SilverStripe\Assets\File TLSKey()
@@ -41,7 +49,8 @@ class VirtualHost extends DataObject
     const HOST_TYPE_MANUAL = 3;
     const PHP_VERSION_PORTS = [
         '8.1' => 9081,
-        '8.2' => 9082
+        '8.2' => 9082,
+        '8.3' => 9083
     ];
     const TLS_AUTO = 0;
     const TLS_MANUAL = 1;
@@ -60,14 +69,15 @@ class VirtualHost extends DataObject
         'RedirectTo' => 'Varchar',
         'ProxyHost' => 'Varchar',
         'EnablePHP' => 'Boolean',
-        'PHPVersion' => 'Enum("8.1,8.2")',
+        'PHPVersion' => 'Enum("8.1,8.2,8.3")',
         'HostRedirect' => 'Int',
-        'ManualConfig' => 'Text'
+        'ManualConfig' => 'Text',
+        'BlockPreview' => 'Text'
     ];
 
     private static $has_one = [
-      'TLSKey' => File::class,
-      'TLSCert' => File::class
+        'TLSKey' => File::class,
+        'TLSCert' => File::class
     ];
 
     private static $defaults = [
@@ -127,8 +137,29 @@ class VirtualHost extends DataObject
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_PROXY)->end()
         ]);
 
+        if ($this->BlockPreview) {
+            $fields->addFieldsToTab('Root.Main', [
+                HeaderField::create('Preview (as saved)'),
+                LiteralField::create(
+                    'blockpreview',
+                    HTML::createTag('div', [
+                        'class' => 'alert alert-secondary'
+                    ],
+                        HTML::createTag('pre', [], CaddyHelper::buildServerBlock($this))
+                    )
+                )
+            ]);
+        }
+
         return $fields;
     }
+
+public function onBeforeWrite()
+{
+    parent::onBeforeWrite();
+    $this->BlockPreview = CaddyHelper::buildServerBlock($this);
+}
+
 
     private function getHostRedirectOpts()
     {
@@ -171,13 +202,13 @@ class VirtualHost extends DataObject
         $result = parent::validate();
 
         if (($this->HostRedirect == VirtualHost::REDIRECT_WWW_TO_ROOT)
-            && (!str_starts_with($this->HostName, 'www'))) {
-            $result->addError("Cannot redirect www to root if the host doesn't begin with www!");
+            && (str_starts_with($this->HostName, 'www'))) {
+            $result->addError("Cannot redirect www to root if the host begins with www!");
         }
 
         if (($this->HostRedirect == VirtualHost::REDIRECT_ROOT_TO_WWW)
-            && (str_starts_with($this->HostName, 'www'))) {
-            $result->addError("Cannot redirect to www if the host begins with www");
+            && (!str_starts_with($this->HostName, 'www'))) {
+            $result->addError("Cannot redirect to www if the host doesn't begin with www");
         }
 
         if ($this->HostType == VirtualHost::HOST_TYPE_REDIRECT) {
@@ -204,29 +235,32 @@ class VirtualHost extends DataObject
     }
 
     /**
+     * @return string
      * @todo - Implement this function to return the absolute path to the key file
      * Needs to be tied-in to the deployment process
-     * @return string
      */
-    private function getTLSKeyFile() {
-
+    private function getTLSKeyFile()
+    {
+        return '/fake/path/to/file';
     }
 
     /**
+     * @return string
      * @todo - Implement this function to return the absolute path to the cert file
      * Needs to be tied-in to the deployment process
-     * @return string
      */
-    private function getTLSCertFile() {
-
+    private function getTLSCertFile()
+    {
+        return '/fake/path/to/file';
     }
 
-    public function getTLSConfigValue() {
+    public function getTLSConfigValue()
+    {
         if ($this->TLSMethod === self::TLS_LOCAL) {
             return 'internal';
         }
         if ($this->TLSMethod === self::TLS_MANUAL) {
-            return $this->getTLSCertFile()." ".$this->getTLSKeyFile();
+            return $this->getTLSCertFile() . " " . $this->getTLSKeyFile();
         }
     }
 
@@ -235,20 +269,36 @@ class VirtualHost extends DataObject
      * (only true if we're not in auto mode)
      * @return bool
      */
-    public function getNeedsTLSConfig() {
+    public function getNeedsTLSConfig()
+    {
         return $this->TLSMethod !== self::TLS_AUTO;
     }
 
-    public function getCaddyRoot() {
-        //Build from what is in siteconfig and the host
+    public function getCaddyRoot()
+    {
+        $config = SiteConfig::current_site_config();
+        $basePath = trim($config->VirtualHostCaddyRoot, '/');
+
+        return sprintf('/%s/%s', $basePath, $this->DocumentRoot);
     }
 
-    public function getPHPRoot() {
-        //Build from what is in siteconfig and the host
+    public function getPHPRoot()
+    {
+        $config = SiteConfig::current_site_config();
+        $basePath = trim($config->VirtualHostPHPRoot, '/');
+
+        return sprintf('/%s/%s', $basePath, $this->DocumentRoot);
     }
 
-    public function getPHPCGIURI() {
-        //Build the URI from the host and port
+    public function getPHPCGIURI()
+    {
+        $config = SiteConfig::current_site_config();
+        return sprintf('%s:%d', $config->PHPCGIIP, $this->getPHPPort());
+    }
+
+    private function getPHPPort()
+    {
+        return self::PHP_VERSION_PORTS[$this->PHPVersion] ?? array_shift(self::PHP_VERSION_PORTS);
     }
 
 }
