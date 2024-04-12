@@ -6,6 +6,7 @@ use DorsetDigital\Caddy\Admin\VirtualHost;
 use DorsetDigital\Caddy\Helper\CaddyHelper;
 use SilverStripe\Dev\BuildTask;
 use SilverStripe\SiteConfig\SiteConfig;
+use SilverStripe\Versioned\Versioned;
 
 class BuildCaddyFile extends BuildTask
 {
@@ -16,7 +17,7 @@ class BuildCaddyFile extends BuildTask
     public function run($request)
     {
         $fileContents = $this->getGlobalBlock();
-        $allSites = VirtualHost::get();
+        $allSites = Versioned::get_by_stage(VirtualHost::class, 'Live');
         /**
          * @var VirtualHost $site
          */

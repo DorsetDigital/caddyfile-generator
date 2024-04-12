@@ -14,11 +14,13 @@ use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\DataObjectSchema;
 use SilverStripe\ORM\Queries\SQLUpdate;
 use SilverStripe\SiteConfig\SiteConfig;
+use SilverStripe\Versioned\Versioned;
 use SilverStripe\View\HTML;
 
 /**
  * Class \BiffBangPow\Model\VirtualHost
  *
+ * @property int $Version
  * @property string $Title
  * @property int $HostType
  * @property string $HostName
@@ -37,6 +39,7 @@ use SilverStripe\View\HTML;
  * @property int $TLSCertID
  * @method \SilverStripe\Assets\File TLSKey()
  * @method \SilverStripe\Assets\File TLSCert()
+ * @mixin \SilverStripe\Versioned\Versioned
  */
 class VirtualHost extends DataObject
 {
@@ -88,6 +91,10 @@ class VirtualHost extends DataObject
         'Title' => 'Site',
         'HostName' => 'Hostname',
         'HostTypeName' => 'Site Type'
+    ];
+
+    private static $extensions = [
+      Versioned::class
     ];
 
     public function getCMSFields()
@@ -145,7 +152,7 @@ class VirtualHost extends DataObject
                     HTML::createTag('div', [
                         'class' => 'alert alert-secondary'
                     ],
-                        HTML::createTag('pre', [], CaddyHelper::buildServerBlock($this))
+                        //HTML::createTag('pre', [], CaddyHelper::buildServerBlock($this))
                     )
                 )
             ]);
@@ -153,12 +160,6 @@ class VirtualHost extends DataObject
 
         return $fields;
     }
-
-public function onBeforeWrite()
-{
-    parent::onBeforeWrite();
-    $this->BlockPreview = CaddyHelper::buildServerBlock($this);
-}
 
 
     private function getHostRedirectOpts()
