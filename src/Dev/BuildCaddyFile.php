@@ -3,6 +3,7 @@
 namespace DorsetDigital\Caddy\Dev;
 
 use DorsetDigital\Caddy\Admin\VirtualHost;
+use DorsetDigital\Caddy\Helper\BitbucketHelper;
 use DorsetDigital\Caddy\Helper\CaddyHelper;
 use SilverStripe\Dev\BuildTask;
 use SilverStripe\SiteConfig\SiteConfig;
@@ -25,10 +26,19 @@ class BuildCaddyFile extends BuildTask
             $fileContents .= CaddyHelper::buildServerBlock($site);
         }
 
-        echo "<pre>".$fileContents."</pre>";
+        $helper = BitbucketHelper::create();
+
+        $bitbucketRes = $helper->commitFile($fileContents, '/Caddyfile')->getMessage();
+        $prRes = $helper->createPR()->getMessage();
+
+        echo "<p>".$bitbucketRes."</p>\n";
+        echo "<p>".$prRes."</p>\n";
+        echo "<pre>" . $fileContents . "</pre>";
+
     }
 
-    private function getGlobalBlock() {
+    private function getGlobalBlock()
+    {
         $config = SiteConfig::current_site_config();
         return $config->renderWith('Caddy/Global')->forTemplate();
     }
