@@ -4,6 +4,10 @@ namespace DorsetDigital\Caddy\Admin;
 
 use SilverStripe\Admin\ModelAdmin;
 
+/**
+ * Class \DorsetDigital\Caddy\Admin\DBCredentialsAdmin
+ *
+ */
 class DBCredentialsAdmin extends ModelAdmin
 {
     private static $managed_models = [

@@ -2,28 +2,23 @@
 
 namespace DorsetDigital\Caddy\Admin;
 
-use DorsetDigital\Caddy\Helper\CaddyHelper;
 use SilverStripe\Assets\File;
 use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\DropdownField;
-use SilverStripe\Forms\HeaderField;
-use SilverStripe\Forms\LiteralField;
 use SilverStripe\Forms\TextareaField;
 use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\DataObject;
-use SilverStripe\ORM\DataObjectSchema;
-use SilverStripe\ORM\Queries\SQLUpdate;
 use SilverStripe\SiteConfig\SiteConfig;
 use SilverStripe\Versioned\Versioned;
-use SilverStripe\View\HTML;
 
 /**
  * Class \BiffBangPow\Model\VirtualHost
  *
  * @property int $Version
  * @property string $Title
- * @property int $HostType
+ * @property int $SiteMode
  * @property string $HostName
+ * @property int $HostType
  * @property bool $EnableHTTPS
  * @property int $TLSMethod
  * @property string $DocumentRoot
@@ -34,7 +29,6 @@ use SilverStripe\View\HTML;
  * @property string $PHPVersion
  * @property int $HostRedirect
  * @property string $ManualConfig
- * @property string $BlockPreview
  * @property int $TLSKeyID
  * @property int $TLSCertID
  * @method \SilverStripe\Assets\File TLSKey()
@@ -58,13 +52,18 @@ class VirtualHost extends DataObject
     const TLS_AUTO = 0;
     const TLS_MANUAL = 1;
     const TLS_LOCAL = 2;
+    const SITE_MODE_COMING = 0;
+    const SITE_MODE_MAINTENANCE = 1;
+    const SITE_MODE_PROD = 2;
 
+    private static $dev_base_domain = 'example.com';
 
     private static $table_name = 'VirtualHost';
     private static $db = [
         'Title' => 'Varchar',
-        'HostType' => 'Int',
+        'SiteMode' => 'Int',
         'HostName' => 'Varchar',
+        'HostType' => 'Int',
         'EnableHTTPS' => 'Boolean',
         'TLSMethod' => 'Int',
         'DocumentRoot' => 'Varchar',
@@ -74,8 +73,7 @@ class VirtualHost extends DataObject
         'EnablePHP' => 'Boolean',
         'PHPVersion' => 'Enum("8.1,8.2,8.3")',
         'HostRedirect' => 'Int',
-        'ManualConfig' => 'Text',
-        'BlockPreview' => 'Text'
+        'ManualConfig' => 'Text'
     ];
 
     private static $has_one = [
@@ -94,7 +92,7 @@ class VirtualHost extends DataObject
     ];
 
     private static $extensions = [
-      Versioned::class
+        Versioned::class
     ];
 
     public function getCMSFields()
@@ -105,9 +103,15 @@ class VirtualHost extends DataObject
         }
         $fields->addFieldsToTab('Root.Main', [
             TextField::create('Title', 'Friendly Name'),
-            DropdownField::create('HostType', 'Host Type', $this->getHostTypes()),
             TextField::create('HostName', 'Hostname')
                 ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end(),
+            DropdownField::create('SiteMode', 'Site Mode', $this->getSiteModes()),
+            TextField::create('DevDomainURI', 'Dev Domain', $this->getDevDomain())
+                ->setReadonly(true)
+                ->setDescription(_t(__CLASS__ . '.DevDomainDesc', 'The site will be accessible on this URL when not in live mode'))
+                ->hideIf('SiteMode')->isEqualTo(self::SITE_MODE_PROD)
+                ->orIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end(),
+            DropdownField::create('HostType', 'Host Type', $this->getHostTypes()),
             CheckboxField::create('EnableHTTPS')
                 ->setDescription(_t(__CLASS__ . '.EnableHTTPSDesc', 'Will fetch a certificate and also enables automatic HTTPS redirection'))
                 ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end(),
@@ -144,20 +148,6 @@ class VirtualHost extends DataObject
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_PROXY)->end()
         ]);
 
-        if ($this->BlockPreview) {
-            $fields->addFieldsToTab('Root.Main', [
-                HeaderField::create('Preview (as saved)'),
-                LiteralField::create(
-                    'blockpreview',
-                    HTML::createTag('div', [
-                        'class' => 'alert alert-secondary'
-                    ],
-                        //HTML::createTag('pre', [], CaddyHelper::buildServerBlock($this))
-                    )
-                )
-            ]);
-        }
-
         return $fields;
     }
 
@@ -190,6 +180,28 @@ class VirtualHost extends DataObject
         ];
     }
 
+    private function getSiteModes()
+    {
+        return [
+            self::SITE_MODE_COMING => _t(__CLASS__ . '.modecoming', 'Coming Soon'),
+            self::SITE_MODE_MAINTENANCE => _t(__CLASS__ . '.modemaintenance', 'Maintenance Mode'),
+            self::SITE_MODE_PROD => _t(__CLASS__ . '.modeprod', 'Live')
+        ];
+    }
+
+    private function getDevDomain()
+    {
+        $host = $this->cleanupString($this->Title);
+        $base = $this->config()->get('dev_base_domain');
+        return strtolower(sprintf('https://%s.%s', $host, $base));
+    }
+
+    private function cleanupString($in)
+    {
+        $output = preg_replace('/[^a-zA-Z0-9\s]/', '', $in);
+        $output = trim($output);
+        return preg_replace('/\s+/', '-', $output);
+    }
 
     public function getHostTypeName()
     {
