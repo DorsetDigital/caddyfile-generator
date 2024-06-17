@@ -28,12 +28,14 @@ class BuildCaddyFile extends BuildTask
 
         $helper = BitbucketHelper::create();
 
-        $bitbucketRes = $helper->commitFile($fileContents, '/Caddyfile')->getMessage();
-        $prRes = $helper->createPR()->getMessage();
+//        $bitbucketRes = $helper->commitFile($fileContents, '/Caddyfile')->getMessage();
+//        $prRes = $helper->createPR()->getMessage();
 
-        echo "<p>".$bitbucketRes."</p>\n";
-        echo "<p>".$prRes."</p>\n";
+//        echo "<p>".$bitbucketRes."</p>\n";
+//        echo "<p>".$prRes."</p>\n";
         echo "<pre>" . $fileContents . "</pre>";
+
+        file_put_contents('/mnt/config/caddy/Caddyfile', $fileContents);
 
     }
 

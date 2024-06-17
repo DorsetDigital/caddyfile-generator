@@ -1,4 +1,4 @@
-$HostName<% if not $EnableHTTPS %>:80<% end_if %> {
+$CurrentHostName<% if not $EnableHTTPS %>:80<% end_if %> {
 <% if $NeedsTLSConfig%><% include Caddy\TLS %>
 <% end_if %>
     header x-hosting "BBP Advanced Hosting"
@@ -6,6 +6,7 @@ $HostName<% if not $EnableHTTPS %>:80<% end_if %> {
 <% if $EnablePHP %>
     php_fastcgi $PHPCGIURI {
         root $PHPRoot
+        env SS_BASE_URL $BaseURL
     }
 <% end_if %>
     encode gzip

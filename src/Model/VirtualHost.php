@@ -88,8 +88,11 @@ class VirtualHost extends DataObject
     private static $summary_fields = [
         'Title' => 'Site',
         'HostName' => 'Hostname',
-        'HostTypeName' => 'Site Type'
+        'HostTypeName' => 'Site Type',
+        'SiteModeName' => 'Mode'
     ];
+
+    private static $default_sort = 'Title';
 
     private static $extensions = [
         Versioned::class
@@ -106,7 +109,7 @@ class VirtualHost extends DataObject
             TextField::create('HostName', 'Hostname')
                 ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end(),
             DropdownField::create('SiteMode', 'Site Mode', $this->getSiteModes()),
-            TextField::create('DevDomainURI', 'Dev Domain', $this->getDevDomain())
+            TextField::create('DevDomainURI', 'Dev Domain', $this->getDevURI())
                 ->setReadonly(true)
                 ->setDescription(_t(__CLASS__ . '.DevDomainDesc', 'The site will be accessible on this URL when not in live mode'))
                 ->hideIf('SiteMode')->isEqualTo(self::SITE_MODE_PROD)
@@ -151,6 +154,23 @@ class VirtualHost extends DataObject
         return $fields;
     }
 
+    public function getCurrentHostName() {
+        return ($this->SiteMode === self::SITE_MODE_PROD) ? $this->HostName : $this->getDevDomain();
+    }
+
+    public function getBaseURL() {
+        if ($this->EnableHTTPS || ($this->SiteMode !== self::SITE_MODE_PROD)) {
+            $protocol = 'https';
+        }
+        else {
+            $protocol = 'http';
+        }
+
+        $hostname = ($this->SiteMode === self::SITE_MODE_PROD) ? $this->HostName : $this->getDevDomain();
+
+        return sprintf('%s://%s', $protocol, $hostname);
+    }
+
 
     private function getHostRedirectOpts()
     {
@@ -189,26 +209,38 @@ class VirtualHost extends DataObject
         ];
     }
 
+    private function getDevURI() {
+        $devDomain = $this->getDevDomain();
+        return sprintf('https://%s', $devDomain);
+    }
+
     private function getDevDomain()
     {
-        $host = $this->cleanupString($this->Title);
-        $base = $this->config()->get('dev_base_domain');
-        return strtolower(sprintf('https://%s.%s', $host, $base));
+        if ($this->HostName) {
+            $host = $this->cleanupString($this->HostName);
+            $base = $this->config()->get('dev_base_domain');
+            return strtolower(sprintf('%s.%s', $host, $base));
+        }
     }
 
     private function cleanupString($in)
     {
-        $output = preg_replace('/[^a-zA-Z0-9\s]/', '', $in);
+        $output = preg_replace('/[^a-zA-Z0-9\s\.-]/', '', $in);
         $output = trim($output);
+        $output = preg_replace('/\.+/', '-', $output);
         return preg_replace('/\s+/', '-', $output);
     }
 
     public function getHostTypeName()
     {
-        $types = VirtualHost::getHostTypes();
+        $types = self::getHostTypes();
         return $types[$this->HostType];
     }
 
+    public function getSiteModeName() {
+        $modes = self::getSiteModes();
+        return $modes[$this->SiteMode];
+    }
 
     public function validate()
     {
@@ -287,19 +319,43 @@ class VirtualHost extends DataObject
         return $this->TLSMethod !== self::TLS_AUTO;
     }
 
-    public function getCaddyRoot()
+    public function getCurrentCaddyRoot()
     {
         $config = SiteConfig::current_site_config();
         $basePath = trim($config->VirtualHostCaddyRoot, '/');
 
+        $docRoot = match ($this->SiteMode) {
+          self::SITE_MODE_PROD => $this->DocumentRoot,
+          self::SITE_MODE_MAINTENANCE => '_maintenance',
+          self::SITE_MODE_COMING => '_comingsoon'
+        };
+
+        return sprintf('/%s/%s', $basePath, $docRoot);
+    }
+
+    public function getCaddyRoot() {
+        $config = SiteConfig::current_site_config();
+        $basePath = trim($config->VirtualHostCaddyRoot, '/');
         return sprintf('/%s/%s', $basePath, $this->DocumentRoot);
     }
 
-    public function getPHPRoot()
+    public function getCurrentPHPRoot()
     {
         $config = SiteConfig::current_site_config();
         $basePath = trim($config->VirtualHostPHPRoot, '/');
 
+        $docRoot = match ($this->SiteMode) {
+            self::SITE_MODE_PROD => $this->DocumentRoot,
+            self::SITE_MODE_MAINTENANCE => '_maintenance',
+            self::SITE_MODE_COMING => '_comingsoon'
+        };
+
+        return sprintf('/%s/%s', $basePath, $docRoot);
+    }
+
+    public function getPHPRoot() {
+        $config = SiteConfig::current_site_config();
+        $basePath = trim($config->VirtualHostCaddyRoot, '/');
         return sprintf('/%s/%s', $basePath, $this->DocumentRoot);
     }
 
