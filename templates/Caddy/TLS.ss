@@ -1,2 +1,1 @@
-    tls $TLSConfigValue {
-    }
+    tls $TLSConfigValue

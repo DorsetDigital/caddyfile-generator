@@ -5,3 +5,15 @@ Name: caddygenerator
 SilverStripe\SiteConfig\SiteConfig:
   extensions:
     - DorsetDigital\Caddy\Extension\SiteConfigExtension
+
+SilverStripe\MimeValidator\MimeUploadValidator:
+  MimeTypes:
+    pem:
+      - 'text/plain'
+    key:
+      - 'text/plain'
+
+SilverStripe\Assets\File:
+  allowed_extensions:
+    - pem
+    - key

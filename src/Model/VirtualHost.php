@@ -2,6 +2,7 @@
 
 namespace DorsetDigital\Caddy\Admin;
 
+use SilverStripe\AssetAdmin\Forms\UploadField;
 use SilverStripe\Assets\File;
 use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\DropdownField;
@@ -10,6 +11,7 @@ use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\SiteConfig\SiteConfig;
 use SilverStripe\Versioned\Versioned;
+use UncleCheese\DisplayLogic\Forms\Wrapper;
 
 /**
  * Class \BiffBangPow\Model\VirtualHost
@@ -29,6 +31,9 @@ use SilverStripe\Versioned\Versioned;
  * @property string $PHPVersion
  * @property int $HostRedirect
  * @property string $ManualConfig
+ * @property string $DeployedKeyFile
+ * @property string $DeployedCertificateFile
+ * @property string $UpstreamHostHeader
  * @property int $TLSKeyID
  * @property int $TLSCertID
  * @method \SilverStripe\Assets\File TLSKey()
@@ -73,12 +78,20 @@ class VirtualHost extends DataObject
         'EnablePHP' => 'Boolean',
         'PHPVersion' => 'Enum("8.1,8.2,8.3")',
         'HostRedirect' => 'Int',
-        'ManualConfig' => 'Text'
+        'ManualConfig' => 'Text',
+        'DeployedKeyFile' => 'Varchar',
+        'DeployedCertificateFile' => 'Varchar',
+        'UpstreamHostHeader' => 'Varchar',
     ];
 
     private static $has_one = [
         'TLSKey' => File::class,
         'TLSCert' => File::class
+    ];
+
+    private static $owns = [
+        'TLSKey',
+        'TLSCert'
     ];
 
     private static $defaults = [
@@ -90,6 +103,11 @@ class VirtualHost extends DataObject
         'HostName' => 'Hostname',
         'HostTypeName' => 'Site Type',
         'SiteModeName' => 'Mode'
+    ];
+
+    private static $cascade_deletes = [
+        'TLSKey',
+        'TLSCert'
     ];
 
     private static $default_sort = 'Title';
@@ -104,6 +122,8 @@ class VirtualHost extends DataObject
         foreach (array_keys(self::$db) as $dataField) {
             $fields->removeByName($dataField);
         }
+        $fields->removeByName(['TLSKey', 'TLSCert']);
+
         $fields->addFieldsToTab('Root.Main', [
             TextField::create('Title', 'Friendly Name'),
             TextField::create('HostName', 'Hostname')
@@ -120,11 +140,17 @@ class VirtualHost extends DataObject
                 ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end(),
             DropdownField::create('TLSMethod', 'TLS Method', $this->getTLSModes())
                 ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end(),
-            TextareaField::create('TLSKey', 'TLS Key')->hideUnless('TLSMethod')
-                ->isEqualTo(self::TLS_MANUAL)->end(),
-            TextareaField::create('TLSCert', 'TLS Cetificate')
-                ->setDescription('Include intermediates here if needed')
-                ->hideUnless('TLSMethod')->isEqualTo(self::TLS_MANUAL)->end(),
+            Wrapper::create(
+                UploadField::create('TLSKey', 'SSL Private Key')
+                    ->setFolderName('TLSKeys')
+                    ->setAllowedExtensions(['key', 'txt'])
+            )->hideUnless('TLSMethod')->isEqualTo(self::TLS_MANUAL)->end(),
+            Wrapper::create(
+                UploadField::create('TLSCert', 'SSL Certificate')
+                    ->setFolderName('TLSCerts')
+                    ->setDescription('Include server and intermediates in one file if they are needed')
+                    ->setAllowedExtensions(['pem', 'txt'])
+            )->hideUnless('TLSMethod')->isEqualTo(self::TLS_MANUAL)->end(),
             TextField::create('DocumentRoot')
                 ->setDescription('Relative to virtualhosts root directory, no leading or trailing slashes')
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_HOST)->end(),
@@ -148,21 +174,36 @@ class VirtualHost extends DataObject
                 ->setDescription('Include protocol.  No trailing slash needed, path redirects will be included')
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_REDIRECT)->end(),
             TextField::create('ProxyHost', 'Proxy Host')
+                ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_PROXY)->end(),
+            TextField::create('UpstreamHostHeader', 'Upstream Host Header value')
+                ->setDescription('Leave blank to use the client-supplied value')
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_PROXY)->end()
         ]);
 
         return $fields;
     }
 
-    public function getCurrentHostName() {
+    public function onAfterWrite()
+    {
+        parent::onAfterWrite();
+        if ($this->TLSKeyID > 0) {
+            $this->TLSKey()->protectFile();
+        }
+        if ($this->TLSCertID > 0) {
+            $this->TLSCert()->protectFile();
+        }
+    }
+
+    public function getCurrentHostName()
+    {
         return ($this->SiteMode === self::SITE_MODE_PROD) ? $this->HostName : $this->getDevDomain();
     }
 
-    public function getBaseURL() {
+    public function getBaseURL()
+    {
         if ($this->EnableHTTPS || ($this->SiteMode !== self::SITE_MODE_PROD)) {
             $protocol = 'https';
-        }
-        else {
+        } else {
             $protocol = 'http';
         }
 
@@ -209,7 +250,8 @@ class VirtualHost extends DataObject
         ];
     }
 
-    private function getDevURI() {
+    private function getDevURI()
+    {
         $devDomain = $this->getDevDomain();
         return sprintf('https://%s', $devDomain);
     }
@@ -237,7 +279,8 @@ class VirtualHost extends DataObject
         return $types[$this->HostType];
     }
 
-    public function getSiteModeName() {
+    public function getSiteModeName()
+    {
         $modes = self::getSiteModes();
         return $modes[$this->SiteMode];
     }
@@ -286,7 +329,7 @@ class VirtualHost extends DataObject
      */
     private function getTLSKeyFile()
     {
-        return '/fake/path/to/file';
+        return $this->DeployedKeyFile;
     }
 
     /**
@@ -296,7 +339,7 @@ class VirtualHost extends DataObject
      */
     private function getTLSCertFile()
     {
-        return '/fake/path/to/file';
+        return $this->DeployedCertificateFile;
     }
 
     public function getTLSConfigValue()
@@ -325,15 +368,16 @@ class VirtualHost extends DataObject
         $basePath = trim($config->VirtualHostCaddyRoot, '/');
 
         $docRoot = match ($this->SiteMode) {
-          self::SITE_MODE_PROD => $this->DocumentRoot,
-          self::SITE_MODE_MAINTENANCE => '_maintenance',
-          self::SITE_MODE_COMING => '_comingsoon'
+            self::SITE_MODE_PROD => $this->DocumentRoot,
+            self::SITE_MODE_MAINTENANCE => '_maintenance',
+            self::SITE_MODE_COMING => '_comingsoon'
         };
 
         return sprintf('/%s/%s', $basePath, $docRoot);
     }
 
-    public function getCaddyRoot() {
+    public function getCaddyRoot()
+    {
         $config = SiteConfig::current_site_config();
         $basePath = trim($config->VirtualHostCaddyRoot, '/');
         return sprintf('/%s/%s', $basePath, $this->DocumentRoot);
@@ -353,7 +397,8 @@ class VirtualHost extends DataObject
         return sprintf('/%s/%s', $basePath, $docRoot);
     }
 
-    public function getPHPRoot() {
+    public function getPHPRoot()
+    {
         $config = SiteConfig::current_site_config();
         $basePath = trim($config->VirtualHostCaddyRoot, '/');
         return sprintf('/%s/%s', $basePath, $this->DocumentRoot);

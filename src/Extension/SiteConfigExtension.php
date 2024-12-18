@@ -22,6 +22,10 @@ use SilverStripe\ORM\DataExtension;
  * @property string $VirtualHostCaddyRoot
  * @property string $VirtualHostPHPRoot
  * @property string $PHPCGIIP
+ * @property string $TLSFilesCaddyRoot
+ * @property string $TLSFilesRoot
+ * @property int $ConfigPollingInterval
+ * @property string $ConfigURL
  */
 class SiteConfigExtension extends DataExtension
 {
@@ -33,7 +37,11 @@ class SiteConfigExtension extends DataExtension
         'RedisKeyPrefix' => 'Varchar',
         'VirtualHostCaddyRoot' => 'Varchar',
         'VirtualHostPHPRoot' => 'Varchar',
-        'PHPCGIIP' => 'Varchar'
+        'PHPCGIIP' => 'Varchar',
+        'TLSFilesCaddyRoot' => 'Varchar',
+        'TLSFilesRoot' => 'Varchar',
+        'ConfigPollingInterval' => 'Int',
+        'ConfigURL' => 'Varchar',
     ];
 
     public function updateCMSFields(FieldList $fields)
@@ -52,11 +60,21 @@ class SiteConfigExtension extends DataExtension
             TextField::create('RedisKeyPrefix', 'Redis Key Prefix')
                 ->setDescription("A random key will be created if you don't add one.   Once set, this should NOT be changed."),
             HeaderField::create('Global settings'),
+            TextField::create('PHPCGIIP', 'IP address of PHP CGI cluster'),
             TextField::create('VirtualHostCaddyRoot', 'Caddy Virtualhost root')
                 ->setDescription('Absolute path to the virtualhost root inside a Caddy instance'),
             TextField::create('VirtualHostPHPRoot', 'PHP Virtualhost root')
                 ->setDescription('Absolute path to the virtualhost root inside a PHP instance'),
-            TextField::create('PHPCGIIP', 'IP address of PHP CGI cluster')
+            TextField::create('TLSFilesRoot', 'TLS files root')
+                ->setDescription('Absolute path to the TLS file storage root on THIS device'),
+            TextField::create('TLSFilesCaddyRoot', 'Caddy TLS files root')
+                ->setDescription('Absolute path to the TLS file storage root inside a Caddy instance'),
+            HeaderField::create('Caddy Config'),
+            TextField::create('ConfigURL', 'Config URL')
+                ->setDescription('Full URL of the dynamic caddy configuration endpoint'),
+            NumericField::create('ConfigPollingInterval', 'Configuration Polling Interval')
+                ->setDescription('Number of seconds between automatic configuration polling')
+                ->setScale(0)
         ]);
     }
 

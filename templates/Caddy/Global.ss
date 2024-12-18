@@ -1,5 +1,5 @@
-{
 <% if $RedisHost %>
+{
     storage redis {
         host           $RedisHost
         port           $RedisPort
@@ -11,6 +11,5 @@
         tls_enabled    false
         tls_insecure   true
     }
-<% end_if %>
 }
-
+<% end_if %>
