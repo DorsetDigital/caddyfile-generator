@@ -34,6 +34,8 @@ use UncleCheese\DisplayLogic\Forms\Wrapper;
  * @property string $DeployedKeyFile
  * @property string $DeployedCertificateFile
  * @property string $UpstreamHostHeader
+ * @property bool $EnableWAF
+ * @property bool $RemoveForwardedHeader
  * @property int $TLSKeyID
  * @property int $TLSCertID
  * @method \SilverStripe\Assets\File TLSKey()
@@ -52,7 +54,8 @@ class VirtualHost extends DataObject
     const PHP_VERSION_PORTS = [
         '8.1' => 9081,
         '8.2' => 9082,
-        '8.3' => 9083
+        '8.3' => 9083,
+        '8.4' => 9084,
     ];
     const TLS_AUTO = 0;
     const TLS_MANUAL = 1;
@@ -60,6 +63,11 @@ class VirtualHost extends DataObject
     const SITE_MODE_COMING = 0;
     const SITE_MODE_MAINTENANCE = 1;
     const SITE_MODE_PROD = 2;
+    const CORAZA_CONFIG_FILENAME = 'coraza.conf';
+    const CRS_CONFIG_FILENAME = 'crs.conf';
+
+    const HOST_DIRECTORY_MAINTENANCE = '_maintenance';
+    const HOST_DIRECTORY_COMINGSOON = '_comingsoon';
 
     private static $dev_base_domain = 'example.com';
 
@@ -76,12 +84,14 @@ class VirtualHost extends DataObject
         'RedirectTo' => 'Varchar',
         'ProxyHost' => 'Varchar',
         'EnablePHP' => 'Boolean',
-        'PHPVersion' => 'Enum("8.1,8.2,8.3")',
+        'PHPVersion' => 'Enum("8.1,8.2,8.3,8.4")',
         'HostRedirect' => 'Int',
         'ManualConfig' => 'Text',
         'DeployedKeyFile' => 'Varchar',
         'DeployedCertificateFile' => 'Varchar',
         'UpstreamHostHeader' => 'Varchar',
+        'EnableWAF' => 'Boolean',
+        'RemoveForwardedHeader' => 'Boolean',
     ];
 
     private static $has_one = [
@@ -174,11 +184,20 @@ class VirtualHost extends DataObject
                 ->setDescription('Include protocol.  No trailing slash needed, path redirects will be included')
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_REDIRECT)->end(),
             TextField::create('ProxyHost', 'Proxy Host')
+                ->setDescription('Should contain only the scheme, hostname and port - no trailing slash!')
+                ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_PROXY)->end(),
+            CheckboxField::create('RemoveForwardedHeader', 'Remove x-forwarded-host header')
+                ->setDescription('This removes the header which may cause a 400 response on older droplet / nginx configurations')
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_PROXY)->end(),
             TextField::create('UpstreamHostHeader', 'Upstream Host Header value')
                 ->setDescription('Leave blank to use the client-supplied value')
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_PROXY)->end()
         ]);
+
+        if (SiteConfig::current_site_config()->EnableWAF) {
+            $fields->insertAfter('HostName', CheckboxField::create('EnableWAF', 'Enable WAF')
+                ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end());
+        }
 
         return $fields;
     }
@@ -362,6 +381,32 @@ class VirtualHost extends DataObject
         return $this->TLSMethod !== self::TLS_AUTO;
     }
 
+    public function getWAFEnabled()
+    {
+        $config = SiteConfig::current_site_config();
+        return ($config->EnableWAF && $this->EnableWAF);
+    }
+
+    public function getCorazaConfigFile()
+    {
+        $config = SiteConfig::current_site_config();
+        if ($config->CorazaConfigID > 0) {
+            $configPath = ($config->WAFConfigCaddyPath) ? rtrim($config->WAFConfigCaddyPath, '/') . '/' : '';
+            return $configPath . self::CORAZA_CONFIG_FILENAME;
+        }
+        return false;
+    }
+
+    public function getCRSConfigFile()
+    {
+        $config = SiteConfig::current_site_config();
+        if ($config->CoreRuleSetConfigID > 0) {
+            $configPath = ($config->WAFConfigCaddyPath) ? rtrim($config->WAFConfigCaddyPath, '/') . '/' : '';
+            return $configPath . self::CRS_CONFIG_FILENAME;
+        }
+        return false;
+    }
+
     public function getCurrentCaddyRoot()
     {
         $config = SiteConfig::current_site_config();
@@ -369,11 +414,17 @@ class VirtualHost extends DataObject
 
         $docRoot = match ($this->SiteMode) {
             self::SITE_MODE_PROD => $this->DocumentRoot,
-            self::SITE_MODE_MAINTENANCE => '_maintenance',
-            self::SITE_MODE_COMING => '_comingsoon'
+            self::SITE_MODE_MAINTENANCE => self::HOST_DIRECTORY_MAINTENANCE,
+            self::SITE_MODE_COMING => self::HOST_DIRECTORY_COMINGSOON
         };
 
         return sprintf('/%s/%s', $basePath, $docRoot);
+    }
+
+    public function getIsHTTPSUpstream()
+    {
+        $usScheme = parse_url($this->ProxyHost, PHP_URL_SCHEME);
+        return ($usScheme == 'https');
     }
 
     public function getCaddyRoot()

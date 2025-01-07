@@ -9,6 +9,33 @@ use SilverStripe\Core\Injector\Injector;
 
 class CaddyHelper
 {
+    /**
+     * Get a list of all the host document roots
+     * @return array
+     */
+    public static function generateHostDirsList(): array
+    {
+        //We always want the system dirs
+        $dirs = [
+            self::getFullPathForHostDir(VirtualHost::HOST_DIRECTORY_MAINTENANCE),
+            self::getFullPathForHostDir(VirtualHost::HOST_DIRECTORY_COMINGSOON)
+        ];
+        /**
+         * @var VirtualHost $host
+         */
+        foreach (VirtualHost::get() as $host) {
+            if (($host->HostType === VirtualHost::HOST_TYPE_HOST) && ($host->DocumentRoot != '')) {
+                $dirs[] = self::getFullPathForHostDir($host->DocumentRoot);
+            }
+        }
+        return array_unique($dirs);
+    }
+
+    private static function getFullPathForHostDir($dir) {
+        $config = SiteConfig::current_site_config();
+        $basePath = trim($config->VirtualHostCaddyRoot, '/');
+        return sprintf('/%s/%s', $basePath, $dir);
+    }
 
     public static function getServerTLSOptions(VirtualHost $site)
     {
@@ -51,59 +78,6 @@ class CaddyHelper
         return $opts;
     }
 
-    public static function getServerOptions(VirtualHost $site)
-    {
-        $handlers[] = [
-            "handler" => "headers",
-            "response" => [
-                "set" => [
-                    "X-Hosting" => [
-                        "Biff Bang Pow Advanced Hosting"
-                    ]
-                ]
-            ]
-        ];
-
-        if ($site->HostType === VirtualHost::HOST_TYPE_HOST) {
-            $handlers[] = [
-                "handler" => "file_server",
-                "root" => $site->getCaddyRoot()
-            ];
-
-            if ($site->EnablePHP) {
-                $handlers[] = [
-                    "handler" => "subroute",
-                    "routes" => [
-                        [
-                            "handle" => [
-                                [
-                                    "handler" => "reverse_proxy",
-                                    "transport" => [
-                                        "protocol" => "fastcgi",
-                                        "root" => $site->getPHPRoot()
-                                    ],
-                                    "upstreams" => [
-                                        ["dial" => $site->getPHPCGIURI()]
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ]
-                ];
-            }
-        }
-
-        $options = [
-            'match' => [
-                ["host" => [$site->getCurrentHostName()]]
-            ],
-            "handle" => $handlers
-        ];
-
-
-        return $options;
-
-    }
 
     public static function buildServerBlock(VirtualHost $site)
     {
@@ -148,6 +122,13 @@ class CaddyHelper
         return $serverBlock;
     }
 
+    /**
+     * @param VirtualHost $site
+     * @return void
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     * @throws \SilverStripe\ORM\ValidationException
+     * @todo Deal with deploying the files to the hosting platform
+     */
     public static function deployTLSFiles(VirtualHost $site)
     {
         if ($site->TLSMethod !== VirtualHost::TLS_MANUAL) {

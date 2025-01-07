@@ -12,8 +12,11 @@ SilverStripe\MimeValidator\MimeUploadValidator:
       - 'text/plain'
     key:
       - 'text/plain'
+    conf:
+      - 'text/plain'
 
 SilverStripe\Assets\File:
   allowed_extensions:
     - pem
     - key
+    - conf

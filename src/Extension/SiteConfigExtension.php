@@ -2,6 +2,8 @@
 
 namespace DorsetDigital\Caddy\Extension;
 
+use SilverStripe\AssetAdmin\Forms\UploadField;
+use SilverStripe\Assets\File;
 use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\HeaderField;
@@ -26,6 +28,13 @@ use SilverStripe\ORM\DataExtension;
  * @property string $TLSFilesRoot
  * @property int $ConfigPollingInterval
  * @property string $ConfigURL
+ * @property bool $EnableWAF
+ * @property bool $IncludeOWASPRules
+ * @property string $WAFConfigCaddyPath
+ * @property int $CorazaConfigID
+ * @property int $CoreRuleSetConfigID
+ * @method \SilverStripe\Assets\File CorazaConfig()
+ * @method \SilverStripe\Assets\File CoreRuleSetConfig()
  */
 class SiteConfigExtension extends DataExtension
 {
@@ -42,6 +51,18 @@ class SiteConfigExtension extends DataExtension
         'TLSFilesRoot' => 'Varchar',
         'ConfigPollingInterval' => 'Int',
         'ConfigURL' => 'Varchar',
+        'EnableWAF' => 'Boolean',
+        'IncludeOWASPRules' => 'Boolean',
+        'WAFConfigCaddyPath' => 'Varchar',
+    ];
+
+    private static $has_one = [
+        'CorazaConfig' => File::class,
+        'CoreRuleSetConfig' => File::class
+    ];
+    private static $owns = [
+        'CorazaConfig',
+        'CoreRuleSetConfig'
     ];
 
     public function updateCMSFields(FieldList $fields)
@@ -74,7 +95,16 @@ class SiteConfigExtension extends DataExtension
                 ->setDescription('Full URL of the dynamic caddy configuration endpoint'),
             NumericField::create('ConfigPollingInterval', 'Configuration Polling Interval')
                 ->setDescription('Number of seconds between automatic configuration polling')
-                ->setScale(0)
+                ->setScale(0),
+            HeaderField::create('Firewall Config'),
+            CheckboxField::create('EnableWAF', 'Enable WAF functionality'),
+            UploadField::create('CorazaConfig', 'Coraza configuration')
+                ->setFolderName('WAF'),
+            UploadField::create('CoreRuleSetConfig', 'Core rule set configuration')
+                ->setFolderName('WAF'),
+            CheckboxField::create('IncludeOWASPRules', 'Include OWASP rules'),
+            TextField::create('WAFConfigCaddyPath')
+                ->setDescription('WAF config files path inside a Caddy instance'),
         ]);
     }
 
