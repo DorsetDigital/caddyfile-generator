@@ -4,6 +4,7 @@ namespace DorsetDigital\Caddy\Admin;
 
 use SilverStripe\AssetAdmin\Forms\UploadField;
 use SilverStripe\Assets\File;
+use SilverStripe\Core\Validation\ValidationResult;
 use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\DropdownField;
 use SilverStripe\Forms\TextareaField;
@@ -309,7 +310,7 @@ class VirtualHost extends DataObject
         return $modes[$this->SiteMode];
     }
 
-    public function validate()
+    public function validate(): ValidationResult
     {
         $result = parent::validate();
 

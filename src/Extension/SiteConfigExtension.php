@@ -4,6 +4,7 @@ namespace DorsetDigital\Caddy\Extension;
 
 use SilverStripe\AssetAdmin\Forms\UploadField;
 use SilverStripe\Assets\File;
+use SilverStripe\Core\Extension;
 use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\HeaderField;
@@ -36,7 +37,7 @@ use SilverStripe\ORM\DataExtension;
  * @method \SilverStripe\Assets\File CorazaConfig()
  * @method \SilverStripe\Assets\File CoreRuleSetConfig()
  */
-class SiteConfigExtension extends DataExtension
+class SiteConfigExtension extends Extension
 {
     private static $db = [
         'RedisHost' => 'Varchar',

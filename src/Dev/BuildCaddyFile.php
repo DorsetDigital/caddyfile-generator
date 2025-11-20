@@ -7,16 +7,19 @@ use DorsetDigital\Caddy\Helper\BitbucketHelper;
 use DorsetDigital\Caddy\Helper\CaddyHelper;
 use SilverStripe\Control\Director;
 use SilverStripe\Dev\BuildTask;
+use SilverStripe\PolyExecution\PolyOutput;
 use SilverStripe\SiteConfig\SiteConfig;
 use SilverStripe\Versioned\Versioned;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
 
 class BuildCaddyFile extends BuildTask
 {
     private static $segment = 'buildcaddyfile';
-    protected $title = 'Build the CaddyFile';
-    protected $description = 'Build the Caddyfile from the stored host definitions';
+    protected string $title = 'Build the CaddyFile';
+    protected static string $description = 'Build the Caddyfile from the stored host definitions';
 
-    public function run($request)
+    public function execute(InputInterface $input, PolyOutput $output): int
     {
 
         $fileContents = $this->getGlobalBlock();
@@ -53,8 +56,8 @@ class BuildCaddyFile extends BuildTask
 
         $prRes = $helper->createPR()->getMessage();
 
-        echo "<pre>".implode("\n", $bitbucketRes)."</pre>\n";
-        echo "<p>".$prRes."</p>\n";
+        $output->writeForHtml("<pre>".implode("\n", $bitbucketRes)."</pre>\n");
+        $output->writeForHtml("<p>".$prRes."</p>\n");
 
     }
 
