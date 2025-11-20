@@ -17,23 +17,23 @@ use UncleCheese\DisplayLogic\Forms\Wrapper;
  * Class \BiffBangPow\Model\VirtualHost
  *
  * @property int $Version
- * @property string $Title
+ * @property ?string $Title
  * @property int $SiteMode
- * @property string $HostName
+ * @property ?string $HostName
  * @property int $HostType
  * @property bool $EnableHTTPS
  * @property int $TLSMethod
- * @property string $DocumentRoot
- * @property string $SiteProxy
- * @property string $RedirectTo
- * @property string $ProxyHost
+ * @property ?string $DocumentRoot
+ * @property ?string $SiteProxy
+ * @property ?string $RedirectTo
+ * @property ?string $ProxyHost
  * @property bool $EnablePHP
- * @property string $PHPVersion
+ * @property ?string $PHPVersion
  * @property int $HostRedirect
- * @property string $ManualConfig
- * @property string $DeployedKeyFile
- * @property string $DeployedCertificateFile
- * @property string $UpstreamHostHeader
+ * @property ?string $ManualConfig
+ * @property ?string $DeployedKeyFile
+ * @property ?string $DeployedCertificateFile
+ * @property ?string $UpstreamHostHeader
  * @property bool $EnableWAF
  * @property bool $RemoveForwardedHeader
  * @property int $TLSKeyID
@@ -41,6 +41,11 @@ use UncleCheese\DisplayLogic\Forms\Wrapper;
  * @method \SilverStripe\Assets\File TLSKey()
  * @method \SilverStripe\Assets\File TLSCert()
  * @mixin \SilverStripe\Versioned\Versioned
+ * @mixin \SilverStripe\Assets\Shortcodes\FileLinkTracking
+ * @mixin \SilverStripe\Assets\AssetControlExtension
+ * @mixin \SilverStripe\CMS\Model\SiteTreeLinkTracking
+ * @mixin \SilverStripe\Versioned\RecursivePublishable
+ * @mixin \SilverStripe\Versioned\VersionedStateExtension
  */
 class VirtualHost extends DataObject
 {
@@ -451,7 +456,7 @@ class VirtualHost extends DataObject
     public function getPHPRoot()
     {
         $config = SiteConfig::current_site_config();
-        $basePath = trim($config->VirtualHostCaddyRoot, '/');
+        $basePath = trim($config->VirtualHostPHPRoot, '/');
         return sprintf('/%s/%s', $basePath, $this->DocumentRoot);
     }
 

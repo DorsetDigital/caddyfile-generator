@@ -11,12 +11,17 @@ use SilverStripe\ORM\DataObject;
 /**
  * Class \DorsetDigital\Caddy\Admin\DBCredentials
  *
- * @property string $DBUserName
- * @property string $DBPassword
- * @property string $DBName
+ * @property ?string $DBUserName
+ * @property ?string $DBPassword
+ * @property ?string $DBName
  * @property int $Status
  * @property int $VirtualHostID
  * @method \DorsetDigital\Caddy\Admin\VirtualHost VirtualHost()
+ * @mixin \SilverStripe\Assets\Shortcodes\FileLinkTracking
+ * @mixin \SilverStripe\Assets\AssetControlExtension
+ * @mixin \SilverStripe\CMS\Model\SiteTreeLinkTracking
+ * @mixin \SilverStripe\Versioned\RecursivePublishable
+ * @mixin \SilverStripe\Versioned\VersionedStateExtension
  */
 class DBCredentials extends DataObject
 {

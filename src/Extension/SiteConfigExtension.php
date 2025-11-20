@@ -16,21 +16,21 @@ use SilverStripe\ORM\DataExtension;
  * Class \DorsetDigital\Caddy\Extension\SiteConfigExtension
  *
  * @property \SilverStripe\SiteConfig\SiteConfig|\DorsetDigital\Caddy\Extension\SiteConfigExtension $owner
- * @property string $RedisHost
+ * @property ?string $RedisHost
  * @property int $RedisPort
- * @property string $RedisUser
- * @property string $RedisPassword
- * @property string $RedisKeyPrefix
- * @property string $VirtualHostCaddyRoot
- * @property string $VirtualHostPHPRoot
- * @property string $PHPCGIIP
- * @property string $TLSFilesCaddyRoot
- * @property string $TLSFilesRoot
+ * @property ?string $RedisUser
+ * @property ?string $RedisPassword
+ * @property ?string $RedisKeyPrefix
+ * @property ?string $VirtualHostCaddyRoot
+ * @property ?string $VirtualHostPHPRoot
+ * @property ?string $PHPCGIIP
+ * @property ?string $TLSFilesCaddyRoot
+ * @property ?string $TLSFilesRoot
  * @property int $ConfigPollingInterval
- * @property string $ConfigURL
+ * @property ?string $ConfigURL
  * @property bool $EnableWAF
  * @property bool $IncludeOWASPRules
- * @property string $WAFConfigCaddyPath
+ * @property ?string $WAFConfigCaddyPath
  * @property int $CorazaConfigID
  * @property int $CoreRuleSetConfigID
  * @method \SilverStripe\Assets\File CorazaConfig()
