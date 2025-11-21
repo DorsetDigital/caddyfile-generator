@@ -68,7 +68,6 @@ class SiteConfigExtension extends Extension
 
     public function updateCMSFields(FieldList $fields)
     {
-        parent::updateCMSFields($fields);
         $fields->addFieldsToTab('Root.CaddyAdmin', [
             LiteralField::create('warning', '<p class="alert-danger p-4 mb-4">Literally every setting on this page can break the entire platform.  Don\'t change anything unless you know what you\'re doing!'),
             HeaderField::create('Redis Server'),
