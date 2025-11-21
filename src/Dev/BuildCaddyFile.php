@@ -58,7 +58,7 @@ class BuildCaddyFile extends BuildTask
 
         $output->writeForHtml("<pre>".implode("\n", $bitbucketRes)."</pre>\n");
         $output->writeForHtml("<p>".$prRes."</p>\n");
-
+        return 1;
     }
 
     private function getGlobalBlock()
