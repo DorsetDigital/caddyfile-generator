@@ -110,7 +110,6 @@ class SiteConfigExtension extends Extension
 
     public function onBeforeWrite()
     {
-        parent::onBeforeWrite();
         if ($this->owner->RedisKeyPrefix == '') {
             $this->owner->RedisKeyPrefix = 'caddy:' . $this->generateRandomString(8);
         }
