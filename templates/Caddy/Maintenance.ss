@@ -1,5 +1,5 @@
 $HostName<% if not $EnableHTTPS %>:80<% end_if %> {
-<% if $NeedsTLSConfig%><% include Caddy\TLS %>
+<% if $TemporaryNeedsTLSConfig %><% include Caddy\TLS %>
 <% end_if %>
 header x-hosting "BBP Advanced Hosting"
 root * $CurrentCaddyRoot

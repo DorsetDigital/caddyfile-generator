@@ -13,6 +13,7 @@ use SilverStripe\Versioned\Versioned;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Input\InputOption;
 
 class BuildCaddyFile extends BuildTask
 {
@@ -35,6 +36,12 @@ class BuildCaddyFile extends BuildTask
 
         $adminFileContents = $this->getGlobalOptions();
         $hostDirsList = implode("\n", CaddyHelper::generateHostDirsList())."\n";
+
+        if ($input->getOption('dryrun')) {
+            $output->writeln("Config files built.  DRY RUN - Not pushing to respository...");
+            $output->writeForHtml('<pre>'.$fileContents.'</pre>');
+            return Command::SUCCESS;
+        }
 
         $output->writeln("Config files built.  Pushing to respository...");
 
@@ -83,5 +90,12 @@ class BuildCaddyFile extends BuildTask
         ];
 
         return json_encode($opts);
+    }
+
+    public function getOptions(): array
+    {
+        return [
+            new InputOption('dryrun', null, InputOption::VALUE_REQUIRED, 'Dry run - Generate files only (no push)', false),
+        ];
     }
 }

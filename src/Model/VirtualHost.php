@@ -377,8 +377,6 @@ class VirtualHost extends DataObject
 
     /**
      * @return string
-     * @todo - Implement this function to return the absolute path to the cert file
-     * Needs to be tied-in to the deployment process
      */
     private function getTLSCertFile()
     {
@@ -387,8 +385,6 @@ class VirtualHost extends DataObject
 
     /**
      * @return string
-     * @todo - Implement this function to return the absolute path to the key file
-     * Needs to be tied-in to the deployment process
      */
     private function getTLSKeyFile()
     {
@@ -397,11 +393,31 @@ class VirtualHost extends DataObject
 
     /**
      * See if we need a TLS config block
-     * (only true if we're not in auto mode)
+     * (only true if we're not in auto mode, and we're not on a maintenance page)
      * @return bool
      */
     public function getNeedsTLSConfig()
     {
+        if (!$this->EnableHTTPS) {
+            return false;
+        }
+        //If the site is in coming soon mode, or maintenance mode, then we're dealing with the dev hostname at this point
+        //So we can let the auto tls kick in
+        if (($this->SiteMode === self::SITE_MODE_COMING) || ($this->SiteMode === self::SITE_MODE_MAINTENANCE)) {
+            return false;
+        }
+        return $this->TLSMethod !== self::TLS_AUTO;
+    }
+
+    /**
+     * Check to see if we need a TLS config for a production domain that is in a temporary page status
+     * This only gets called from the coming soon and maintenance templates which are added for the production domain
+     * @return bool
+     */
+    public function getTemporaryNeedsTLSConfig() {
+        if (!$this->EnableHTTPS) {
+            return false;
+        }
         return $this->TLSMethod !== self::TLS_AUTO;
     }
 
