@@ -131,30 +131,90 @@ class CaddyHelper
      */
     public static function deployTLSFiles(VirtualHost $site)
     {
-        if ($site->TLSMethod !== VirtualHost::TLS_MANUAL) {
-            return;
+        $config = SiteConfig::current_site_config();
+        if (!$config->TLSFilesRoot || !$config->TLSFilesCaddyRoot) {
+            throw new \Exception('TLS file root paths are not configured in the settings.');
         }
+
+        if ($site->TLSMethod === VirtualHost::TLS_MANUAL) {
+            return self::deployManualTLSFiles($site);
+        }
+
+        if ($site->TLSMethod === VirtualHost::TLS_STORED) {
+            return self::deployStoredTLSFiles($site);
+        }
+    }
+
+    private static function deployStoredTLSFiles(VirtualHost $site) {
+        if ($site->SSLCertificateID < 1) {
+            throw new \Exception('SSL Certificate is not set for '.$site->Title);
+        }
+
+        $sslRecord = $site->SSLCertificate();
+        $keyData = $sslRecord->TLSKey()->getString();
+        $certificateData = $sslRecord->TLSCert()->getString();
+        $updateRecord = false;
+        $config = SiteConfig::current_site_config();
+
+        $deployedKeyName = sprintf(
+            'ssl-%s-%s.key',
+            $sslRecord->ID,
+            md5($keyData)
+        );
+
+        $deployedCertificateName = sprintf(
+            'ssl-%s-%s.pem',
+            $sslRecord->ID,
+            md5($certificateData)
+        );
+
+        //Paths to the SSL storage from this machine
+        $localKeyPath = rtrim($config->TLSFilesRoot, '/') . '/' . $deployedKeyName;
+        $localCertificatePath = rtrim($config->TLSFilesRoot, '/') . '/' . $deployedCertificateName;
+
+        //Paths to the SSL storage for Caddy to use
+        $deployedKeyPath = rtrim($config->TLSFilesCaddyRoot, '/') . '/' . $deployedKeyName;
+        $deployedCertificatePath = rtrim($config->TLSFilesCaddyRoot, '/') . '/' . $deployedCertificateName;
+
+        //See if the files exist, are already deployed and match the signatures.
+        //If not, copy the new cert files to the production store, with their unique filenames
+        //And update the SSL record as required
+        if (($deployedKeyPath !== $sslRecord->DeployedKeyFile) || (!is_file($localKeyPath))) {
+            file_put_contents($localKeyPath, $keyData);
+            $sslRecord->DeployedKeyFile = $deployedKeyPath;
+            $updateRecord = true;
+        }
+
+        if (($deployedCertificatePath !== $sslRecord->DeployedCertificateFile) || (!is_file($localCertificatePath))) {
+            file_put_contents($localCertificatePath, $certificateData);
+            $sslRecord->DeployedCertificateFile = $deployedCertificatePath;
+            $updateRecord = true;
+        }
+
+        if ($updateRecord) {
+            $sslRecord->write();
+        }
+
+    }
+
+    private static function deployManualTLSFiles(VirtualHost $site) {
         if (($site->TLSCertID < 1) || ($site->TLSKeyID < 1)) {
             throw new \Exception('Trying to provision TLS without the correct files');
         }
         $config = SiteConfig::current_site_config();
-        if (!$config->TLSFilesRoot || !$config->TLSFilesCaddyRoot) {
-            throw new \Exception('TLS file root paths are not set');
-        }
-
         $updateSiteRecord = false;
 
         $siteKeyData = $site->TLSKey()->getString();
         $siteCertificateData = $site->TLSCert()->getString();
 
         $deployedKeyName = sprintf(
-            '%s-%s.key',
+            'site-%s-%s.key',
             $site->ID,
             md5($siteKeyData)
         );
 
         $deployedCertificateName = sprintf(
-            '%s-%s.pem',
+            'site-%s-%s.pem',
             $site->ID,
             md5($siteCertificateData)
         );
@@ -183,6 +243,5 @@ class CaddyHelper
         if ($updateSiteRecord) {
             $site->write();
         }
-
     }
 }

@@ -10,6 +10,7 @@ use SilverStripe\Dev\BuildTask;
 use SilverStripe\PolyExecution\PolyOutput;
 use SilverStripe\SiteConfig\SiteConfig;
 use SilverStripe\Versioned\Versioned;
+use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -35,7 +36,7 @@ class BuildCaddyFile extends BuildTask
         $adminFileContents = $this->getGlobalOptions();
         $hostDirsList = implode("\n", CaddyHelper::generateHostDirsList())."\n";
 
-        echo "<p>Config files built.  Pushing.</p>";
+        $output->writeln("Config files built.  Pushing to respository...");
 
         $helper = BitbucketHelper::create();
         $bitbucketRes[] = $helper->commitFile($fileContents, '/Caddyfile')->getMessage();
@@ -58,7 +59,7 @@ class BuildCaddyFile extends BuildTask
 
         $output->writeForHtml("<pre>".implode("\n", $bitbucketRes)."</pre>\n");
         $output->writeForHtml("<p>".$prRes."</p>\n");
-        return 1;
+        return Command::SUCCESS;
     }
 
     private function getGlobalBlock()

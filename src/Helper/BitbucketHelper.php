@@ -67,10 +67,10 @@ class BitbucketHelper
 
             // Check if the request was successful (HTTP status code 201)
             if ($response->getStatusCode() == 201) {
-                $this->setMessage(_t(__CLASS__ . 'CommitSuccess', 'Files committed successfully.'));
+                $this->setMessage(_t(__CLASS__ . 'CommitSuccess', 'Files committed successfully - ').$repoPath);
                 $this->setStatus(self::BB_STATUS_OK);
             } else {
-                $this->setMessage(_t(__CLASS__ . 'CommitError', 'Error committimng files: {message}', [
+                $this->setMessage(_t(__CLASS__ . 'CommitError', 'Error committing files: {message}', [
                     'message' => $response->getStatusCode()
                 ]));
                 $this->setStatus(self::BB_STATUS_ERROR);
@@ -109,9 +109,9 @@ class BitbucketHelper
             'close_source_branch' => false,
         ];
 
-        echo "<pre>";
-        print_r($body);
-        echo "</pre>";
+//        echo "<pre>";
+//        print_r($body);
+//        echo "</pre>";
 
 
         try {

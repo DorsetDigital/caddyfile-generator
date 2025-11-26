@@ -66,6 +66,7 @@ class VirtualHost extends DataObject
     const TLS_AUTO = 0;
     const TLS_MANUAL = 1;
     const TLS_LOCAL = 2;
+    const TLS_STORED = 3;
     const SITE_MODE_COMING = 0;
     const SITE_MODE_MAINTENANCE = 1;
     const SITE_MODE_PROD = 2;
@@ -102,7 +103,8 @@ class VirtualHost extends DataObject
 
     private static $has_one = [
         'TLSKey' => File::class,
-        'TLSCert' => File::class
+        'TLSCert' => File::class,
+        'SSLCertificate' => SSLCertificate::class,
     ];
 
     private static $owns = [
@@ -138,7 +140,7 @@ class VirtualHost extends DataObject
         foreach (array_keys(self::$db) as $dataField) {
             $fields->removeByName($dataField);
         }
-        $fields->removeByName(['TLSKey', 'TLSCert']);
+        $fields->removeByName(['TLSKey', 'TLSCert', 'SSLCertificateID']);
 
         $fields->addFieldsToTab('Root.Main', [
             TextField::create('Title', 'Friendly Name'),
@@ -165,8 +167,11 @@ class VirtualHost extends DataObject
                 UploadField::create('TLSCert', 'SSL Certificate')
                     ->setFolderName('TLSCerts')
                     ->setDescription('Include server and intermediates in one file if they are needed')
-                    ->setAllowedExtensions(['pem', 'txt'])
+                    ->setAllowedExtensions(['pem', 'txt', 'crt'])
             )->hideUnless('TLSMethod')->isEqualTo(self::TLS_MANUAL)->end(),
+            DropdownField::create('SSLCertificateID', 'SSL Certificate', SSLCertificate::get()->map('ID', 'Title'))
+                ->setEmptyString('Please select')
+                ->hideUnless('TLSMethod')->isEqualTo(self::TLS_STORED)->end(),
             TextField::create('DocumentRoot')
                 ->setDescription('Relative to virtualhosts root directory, no leading or trailing slashes')
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_HOST)->end(),
@@ -208,64 +213,6 @@ class VirtualHost extends DataObject
         return $fields;
     }
 
-    public function onAfterWrite()
-    {
-        parent::onAfterWrite();
-        if ($this->TLSKeyID > 0) {
-            $this->TLSKey()->protectFile();
-        }
-        if ($this->TLSCertID > 0) {
-            $this->TLSCert()->protectFile();
-        }
-    }
-
-    public function getCurrentHostName()
-    {
-        return ($this->SiteMode === self::SITE_MODE_PROD) ? $this->HostName : $this->getDevDomain();
-    }
-
-    public function getBaseURL()
-    {
-        if ($this->EnableHTTPS || ($this->SiteMode !== self::SITE_MODE_PROD)) {
-            $protocol = 'https';
-        } else {
-            $protocol = 'http';
-        }
-
-        $hostname = ($this->SiteMode === self::SITE_MODE_PROD) ? $this->HostName : $this->getDevDomain();
-
-        return sprintf('%s://%s', $protocol, $hostname);
-    }
-
-
-    private function getHostRedirectOpts()
-    {
-        return [
-            self::REDIRECT_NONE => _t(__CLASS__ . '.noredirect', 'No host redirect'),
-            self::REDIRECT_WWW_TO_ROOT => _t(__CLASS__ . '.wwwtoroot', 'Redirect www to root'),
-            self::REDIRECT_ROOT_TO_WWW => _t(__CLASS__ . '.roottowww', 'Redirect root to www')
-        ];
-    }
-
-    private function getHostTypes()
-    {
-        return [
-            self::HOST_TYPE_HOST => _t(__CLASS__ . '.host', 'Standard host'),
-            self::HOST_TYPE_REDIRECT => _t(__CLASS__ . '.redirecthost', 'Redirect host'),
-            self::HOST_TYPE_PROXY => _t(__CLASS__ . '.proxyhost', 'Proxy host'),
-            self::HOST_TYPE_MANUAL => _t(__CLASS__ . '.manualhost', 'Manual host configuration')
-        ];
-    }
-
-    private function getTLSModes()
-    {
-        return [
-            self::TLS_AUTO => _t(__CLASS__ . '.tlsauto', 'Automatic'),
-            self::TLS_MANUAL => _t(__CLASS__ . 'tlsmanual', 'Manual certificate'),
-            self::TLS_LOCAL => _t(__CLASS__ . '.tlslocal', 'Local / self-signed certificate')
-        ];
-    }
-
     private function getSiteModes()
     {
         return [
@@ -296,6 +243,64 @@ class VirtualHost extends DataObject
         $output = trim($output);
         $output = preg_replace('/\.+/', '-', $output);
         return preg_replace('/\s+/', '-', $output);
+    }
+
+    private function getHostTypes()
+    {
+        return [
+            self::HOST_TYPE_HOST => _t(__CLASS__ . '.host', 'Standard host'),
+            self::HOST_TYPE_REDIRECT => _t(__CLASS__ . '.redirecthost', 'Redirect host'),
+            self::HOST_TYPE_PROXY => _t(__CLASS__ . '.proxyhost', 'Proxy host'),
+            self::HOST_TYPE_MANUAL => _t(__CLASS__ . '.manualhost', 'Manual host configuration')
+        ];
+    }
+
+    private function getTLSModes()
+    {
+        return [
+            self::TLS_AUTO => _t(__CLASS__ . '.tlsauto', 'Automatic'),
+            self::TLS_MANUAL => _t(__CLASS__ . 'tlsmanual', 'Manual certificate'),
+            self::TLS_LOCAL => _t(__CLASS__ . '.tlslocal', 'Local / self-signed certificate'),
+            self::TLS_STORED => _t(__CLASS__ . '.tlsstored', 'Existing certificate'),
+        ];
+    }
+
+    private function getHostRedirectOpts()
+    {
+        return [
+            self::REDIRECT_NONE => _t(__CLASS__ . '.noredirect', 'No host redirect'),
+            self::REDIRECT_WWW_TO_ROOT => _t(__CLASS__ . '.wwwtoroot', 'Redirect www to root'),
+            self::REDIRECT_ROOT_TO_WWW => _t(__CLASS__ . '.roottowww', 'Redirect root to www')
+        ];
+    }
+
+    public function onAfterWrite()
+    {
+        parent::onAfterWrite();
+        if ($this->TLSKeyID > 0) {
+            $this->TLSKey()->protectFile();
+        }
+        if ($this->TLSCertID > 0) {
+            $this->TLSCert()->protectFile();
+        }
+    }
+
+    public function getCurrentHostName()
+    {
+        return ($this->SiteMode === self::SITE_MODE_PROD) ? $this->HostName : $this->getDevDomain();
+    }
+
+    public function getBaseURL()
+    {
+        if ($this->EnableHTTPS || ($this->SiteMode !== self::SITE_MODE_PROD)) {
+            $protocol = 'https';
+        } else {
+            $protocol = 'http';
+        }
+
+        $hostname = ($this->SiteMode === self::SITE_MODE_PROD) ? $this->HostName : $this->getDevDomain();
+
+        return sprintf('%s://%s', $protocol, $hostname);
     }
 
     public function getHostTypeName()
@@ -344,17 +349,30 @@ class VirtualHost extends DataObject
             }
         }
 
+        if ($this->TLSMethod === self::TLS_MANUAL) {
+            if (($this->TLSKeyID < 1) || ($this->TLSCertID < 1)) {
+                $result->addError("Please add the required SSL key and certificate files");
+            }
+        }
+
+        if (($this->TLSMethod === self::TLS_STORED) && ($this->SSLCertificateID < 1)) {
+            $result->addError("Please select an SSL certificate from the list");
+        }
+
         return $result;
     }
 
-    /**
-     * @return string
-     * @todo - Implement this function to return the absolute path to the key file
-     * Needs to be tied-in to the deployment process
-     */
-    private function getTLSKeyFile()
+    public function getTLSConfigValue()
     {
-        return $this->DeployedKeyFile;
+        if ($this->TLSMethod === self::TLS_LOCAL) {
+            return 'internal';
+        }
+        if ($this->TLSMethod === self::TLS_MANUAL) {
+            return $this->getTLSCertFile() . " " . $this->getTLSKeyFile();
+        }
+        if ($this->TLSMethod === self::TLS_STORED) {
+            return $this->SSLCertificate()->getTLSConfigValue();
+        }
     }
 
     /**
@@ -367,14 +385,14 @@ class VirtualHost extends DataObject
         return $this->DeployedCertificateFile;
     }
 
-    public function getTLSConfigValue()
+    /**
+     * @return string
+     * @todo - Implement this function to return the absolute path to the key file
+     * Needs to be tied-in to the deployment process
+     */
+    private function getTLSKeyFile()
     {
-        if ($this->TLSMethod === self::TLS_LOCAL) {
-            return 'internal';
-        }
-        if ($this->TLSMethod === self::TLS_MANUAL) {
-            return $this->getTLSCertFile() . " " . $this->getTLSKeyFile();
-        }
+        return $this->DeployedKeyFile;
     }
 
     /**
