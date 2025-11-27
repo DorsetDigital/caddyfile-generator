@@ -34,6 +34,8 @@ class BuildCaddyFile extends BuildTask
             $fileContents .= CaddyHelper::buildServerBlock($site);
         }
 
+        $fileContents = preg_replace("/^\s*[\r\n]+/m", "", $fileContents);
+
         $adminFileContents = $this->getGlobalOptions();
         $hostDirsList = implode("\n", CaddyHelper::generateHostDirsList())."\n";
 
