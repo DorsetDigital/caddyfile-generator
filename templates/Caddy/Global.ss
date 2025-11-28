@@ -11,7 +11,7 @@
         db             0
         timeout        5
         key_prefix     "$RedisKeyPrefix"
-        tls_enabled    false
+        tls_enabled    <% if $RedisTLS %>true<% else %>false<% end_if %>
         tls_insecure   true
     }
 <% end_if %>

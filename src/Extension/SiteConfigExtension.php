@@ -42,6 +42,7 @@ class SiteConfigExtension extends Extension
     private static $db = [
         'RedisHost' => 'Varchar',
         'RedisPort' => 'Int',
+        'RedisTLS' => 'Boolean',
         'RedisUser' => 'Varchar',
         'RedisPassword' => 'Varchar',
         'RedisKeyPrefix' => 'Varchar',
@@ -74,6 +75,7 @@ class SiteConfigExtension extends Extension
             TextField::create('RedisHost', 'Redis Host Address')
                 ->setDescription('Connection will be made via TCP, do not include a protocol'),
             NumericField::create('RedisPort')->setHTML5(true)->setScale(0),
+            CheckboxField::create('RedisTLS')->setDescription('Enable TLS'),
             TextField::create('RedisUser', 'Redis Username')
                 ->setDescription('Leave blank if not required'),
             TextField::create('RedisPassword', 'Redis Password')
