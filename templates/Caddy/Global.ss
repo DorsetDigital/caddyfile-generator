@@ -3,7 +3,7 @@
     order coraza_waf first
 <% end_if %>
 <% if $RedisHost %>
-    storage redis {
+    storage <% if $RedisCluster %>cluster <% end_if %>redis {
         host           $RedisHost
         port           $RedisPort
         username       "$RedisUser"
