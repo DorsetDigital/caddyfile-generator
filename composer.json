@@ -19,5 +19,8 @@
     }
   },
   "extra": {
+    "expose": [
+      "client/javascript"
+    ]
   }
 }

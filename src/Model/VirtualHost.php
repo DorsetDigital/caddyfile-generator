@@ -2,6 +2,7 @@
 
 namespace DorsetDigital\Caddy\Admin;
 
+use SilverStripe\Admin\CMSEditLinkExtension;
 use SilverStripe\AssetAdmin\Forms\UploadField;
 use SilverStripe\Assets\File;
 use SilverStripe\Core\Validation\ValidationResult;
@@ -12,6 +13,7 @@ use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\SiteConfig\SiteConfig;
 use SilverStripe\Versioned\Versioned;
+use SilverStripe\VersionedAdmin\Forms\HistoryViewerField;
 use UncleCheese\DisplayLogic\Forms\Wrapper;
 
 /**
@@ -120,7 +122,8 @@ class VirtualHost extends DataObject
         'Title' => 'Site',
         'HostName' => 'Hostname',
         'HostTypeName' => 'Site Type',
-        'SiteModeName' => 'Mode'
+        'SiteModeName' => 'Mode',
+        'EnableWAF.Nice' => 'WAF',
     ];
 
     private static $cascade_deletes = [
@@ -131,8 +134,11 @@ class VirtualHost extends DataObject
     private static $default_sort = 'Title';
 
     private static $extensions = [
-        Versioned::class
+        Versioned::class,
+        CMSEditLinkExtension::class
     ];
+
+    private static $cms_edit_owner = SitesAdmin::class;
 
     public function getCMSFields()
     {
@@ -209,6 +215,10 @@ class VirtualHost extends DataObject
             $fields->insertAfter('HostName', CheckboxField::create('EnableWAF', 'Enable WAF')
                 ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end());
         }
+
+        $fields->addFieldsToTab('Root.History', [
+            HistoryViewerField::create('HistoryViewer', 'History Viewer')
+        ]);
 
         return $fields;
     }

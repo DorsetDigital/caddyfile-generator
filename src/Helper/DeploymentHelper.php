@@ -1,29 +1,29 @@
 <?php
 
-namespace DorsetDigital\Caddy\Dev;
+namespace DorsetDigital\Caddy\Helper;
 
 use DorsetDigital\Caddy\Admin\VirtualHost;
-use DorsetDigital\Caddy\Helper\BitbucketHelper;
-use DorsetDigital\Caddy\Helper\CaddyHelper;
-use SilverStripe\Control\Director;
-use SilverStripe\Dev\BuildTask;
+use SilverStripe\Core\Injector\Injectable;
 use SilverStripe\PolyExecution\PolyOutput;
 use SilverStripe\SiteConfig\SiteConfig;
 use SilverStripe\Versioned\Versioned;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Input\InputOption;
 
-class BuildCaddyFile extends BuildTask
+class DeploymentHelper
 {
-    private static $segment = 'buildcaddyfile';
-    protected string $title = 'Build the CaddyFile';
-    protected static string $description = 'Build the Caddyfile from the stored host definitions';
+    use Injectable;
 
-    public function execute(InputInterface $input, PolyOutput $output): int
+    private bool $dryRun = false;
+    private array $messages;
+
+    public function processDryRun() {
+        $this->dryRun = true;
+        return $this->processConfig();
+    }
+
+    public function processConfig()
     {
-
         $fileContents = $this->getGlobalBlock();
         $allSites = Versioned::get_by_stage(VirtualHost::class, 'Live');
         /**
@@ -39,13 +39,13 @@ class BuildCaddyFile extends BuildTask
         $adminFileContents = $this->getGlobalOptions();
         $hostDirsList = implode("\n", CaddyHelper::generateHostDirsList())."\n";
 
-        if ($input->getOption('dryrun')) {
-            $output->writeln("Config files built.  DRY RUN - Not pushing to respository...");
-            $output->writeForHtml('<pre>'.$fileContents.'</pre>');
-            return Command::SUCCESS;
+        if ($this->dryRun) {
+            $this->addMessage("Config files built.  DRY RUN - Not pushing to respository...");
+            $this->addMessage('<pre>'.$fileContents.'</pre>');
+            return true;
         }
 
-        $output->writeln("Config files built.  Pushing to respository...");
+        $this->addMessage("Config files built.  Pushing to respository...");
 
         $helper = BitbucketHelper::create();
         $bitbucketRes[] = $helper->commitFile($fileContents, '/Caddyfile')->getMessage();
@@ -63,12 +63,19 @@ class BuildCaddyFile extends BuildTask
             }
         }
 
-
         $prRes = $helper->createPR()->getMessage();
 
-        $output->writeForHtml("<pre>".implode("\n", $bitbucketRes)."</pre>\n");
-        $output->writeForHtml("<p>".$prRes."</p>\n");
-        return Command::SUCCESS;
+        $this->addMessage("<pre>".implode("\n", $bitbucketRes)."</pre>\n");
+        $this->addMessage("<p>".$prRes."</p>\n");
+        return true;
+    }
+
+    public function getMessages(): string {
+        return implode("<br>\n", $this->messages);
+    }
+
+    private function addMessage($message) {
+        $this->messages[] = $message;
     }
 
     private function getGlobalBlock()
@@ -92,12 +99,5 @@ class BuildCaddyFile extends BuildTask
         ];
 
         return json_encode($opts);
-    }
-
-    public function getOptions(): array
-    {
-        return [
-            new InputOption('dryrun', null, InputOption::VALUE_REQUIRED, 'Dry run - Generate files only (no push)', false),
-        ];
     }
 }
