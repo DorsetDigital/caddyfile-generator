@@ -83,9 +83,9 @@ class SSLCertificate extends DataObject
                     LiteralField::create('LinkedVirtualHosts', $list)
                 ]
             );
-
-            return $fields;
         }
+
+        return $fields;
     }
 
     public function onAfterWrite()
