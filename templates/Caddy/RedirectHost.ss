@@ -4,5 +4,5 @@ $CurrentHostName<% if not $EnableHTTPS %>:80<% end_if %> {
 <% end_if %>
 <% if $WAFEnabled %><% include Caddy\WAF %>
 <% end_if %>
-    redir $RedirectTo{uri}
+    redir $RedirectTo<% if $RedirectPaths %>{uri}<% end_if %><% if $RedirectPermanent %> permanent<% end_if %>
 }

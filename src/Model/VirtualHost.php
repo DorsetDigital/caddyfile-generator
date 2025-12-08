@@ -101,12 +101,15 @@ class VirtualHost extends DataObject
         'UpstreamHostHeader' => 'Varchar',
         'EnableWAF' => 'Boolean',
         'RemoveForwardedHeader' => 'Boolean',
+        'RedirectPaths' => 'Boolean',
+        'RedirectPermanent' => 'Boolean',
     ];
 
     private static $has_one = [
         'TLSKey' => File::class,
         'TLSCert' => File::class,
         'SSLCertificate' => SSLCertificate::class,
+        'AuthCredentials' => BasicAuthCreds::class,
     ];
 
     private static $owns = [
@@ -146,7 +149,7 @@ class VirtualHost extends DataObject
         foreach (array_keys(self::$db) as $dataField) {
             $fields->removeByName($dataField);
         }
-        $fields->removeByName(['TLSKey', 'TLSCert', 'SSLCertificateID']);
+        $fields->removeByName(['TLSKey', 'TLSCert', 'SSLCertificateID', 'AuthCredentialsID']);
 
         $fields->addFieldsToTab('Root.Main', [
             TextField::create('Title', 'Friendly Name'),
@@ -192,13 +195,17 @@ class VirtualHost extends DataObject
                 ->andIf('EnablePHP')->isChecked()
                 ->end(),
             DropdownField::create('HostRedirect', 'Host-level redirect', $this->getHostRedirectOpts())
-                ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)
-                ->orIf('HostType')->isEqualTo(self::HOST_TYPE_REDIRECT)->end(),
+                ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end(),
             TextareaField::create('ManualConfig', 'Manual configuration')
                 ->setDescription('Manual configuration.  Warning!  No validation is performed!')
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_MANUAL)->end(),
             TextField::create('RedirectTo', 'Redirect to')
-                ->setDescription('Include protocol.  No trailing slash needed, path redirects will be included')
+                ->setDescription('Include protocol.  No trailing slash needed.')
+                ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_REDIRECT)->end(),
+            CheckboxField::create('RedirectPaths', 'Redirect paths')
+                ->setDescription('If checked, will retain URL paths in the redirect, else it will just redirect to the base URL')
+                ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_REDIRECT)->end(),
+            CheckboxField::create('RedirectPermanent', 'Permanent redirect (301)')
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_REDIRECT)->end(),
             TextField::create('ProxyHost', 'Proxy Host')
                 ->setDescription('Should contain only the scheme, hostname and port - no trailing slash!')
@@ -215,6 +222,13 @@ class VirtualHost extends DataObject
             $fields->insertAfter('HostName', CheckboxField::create('EnableWAF', 'Enable WAF')
                 ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end());
         }
+
+        $fields->addFieldsToTab('Root.Main', [
+            DropdownField::create('AuthCredentialsID', 'Auth Access Credentials', BasicAuthCreds::get()->map('ID', 'Title'))
+                ->setEmptyString('No auth required')
+                ->hideUnless('HostType')->isEqualTo(self::HOST_TYPE_HOST)
+                ->orIf('HostType')->isEqualTo(self::HOST_TYPE_PROXY)->end(),
+        ]);
 
         $fields->addFieldsToTab('Root.History', [
             HistoryViewerField::create('HistoryViewer', 'History Viewer')
@@ -424,7 +438,8 @@ class VirtualHost extends DataObject
      * This only gets called from the coming soon and maintenance templates which are added for the production domain
      * @return bool
      */
-    public function getTemporaryNeedsTLSConfig() {
+    public function getTemporaryNeedsTLSConfig()
+    {
         if (!$this->EnableHTTPS) {
             return false;
         }
