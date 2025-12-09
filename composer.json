@@ -11,7 +11,8 @@
     }
   ],
   "require": {
-      "unclecheese/display-logic": "^4"
+    "unclecheese/display-logic": "^4",
+    "symbiote/silverstripe-gridfieldextensions": "^5"
   },
   "autoload": {
     "psr-4": {

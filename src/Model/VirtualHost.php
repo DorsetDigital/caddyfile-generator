@@ -8,12 +8,16 @@ use SilverStripe\Assets\File;
 use SilverStripe\Core\Validation\ValidationResult;
 use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\DropdownField;
+use SilverStripe\Forms\GridField\GridField;
+use SilverStripe\Forms\GridField\GridFieldConfig_RecordEditor;
+use SilverStripe\Forms\LiteralField;
 use SilverStripe\Forms\TextareaField;
 use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\SiteConfig\SiteConfig;
 use SilverStripe\Versioned\Versioned;
 use SilverStripe\VersionedAdmin\Forms\HistoryViewerField;
+use SilverStripe\View\HTML;
 use UncleCheese\DisplayLogic\Forms\Wrapper;
 
 /**
@@ -112,6 +116,10 @@ class VirtualHost extends DataObject
         'AuthCredentials' => BasicAuthCreds::class,
     ];
 
+    private static $has_many = [
+        'RedirectRules' => RedirectRule::class,
+    ];
+
     private static $owns = [
         'TLSKey',
         'TLSCert'
@@ -131,7 +139,8 @@ class VirtualHost extends DataObject
 
     private static $cascade_deletes = [
         'TLSKey',
-        'TLSCert'
+        'TLSCert',
+        'RedirectRules',
     ];
 
     private static $default_sort = 'Title';
@@ -149,7 +158,7 @@ class VirtualHost extends DataObject
         foreach (array_keys(self::$db) as $dataField) {
             $fields->removeByName($dataField);
         }
-        $fields->removeByName(['TLSKey', 'TLSCert', 'SSLCertificateID', 'AuthCredentialsID']);
+        $fields->removeByName(['TLSKey', 'TLSCert', 'SSLCertificateID', 'AuthCredentialsID', 'RedirectRules']);
 
         $fields->addFieldsToTab('Root.Main', [
             TextField::create('Title', 'Friendly Name'),
@@ -233,6 +242,21 @@ class VirtualHost extends DataObject
         $fields->addFieldsToTab('Root.History', [
             HistoryViewerField::create('HistoryViewer', 'History Viewer')
         ]);
+
+        $redirectGrid = GridField::create('Redirects', 'Redirects', $this->RedirectRules(),
+            GridFieldConfig_RecordEditor::create());
+
+        $fields->addFieldsToTab('Root.Redirects', [
+            LiteralField::create('redirectnote',
+            HTML::createTag('p', [
+                'class' => 'alert alert-warning mb-4'
+            ],
+            "Are you sure you should be doing this?   Redirects should generally be added to the application, not to the hosting!  Redirects should be used sparingly and only when absolutely necessary - they use valuable memory in the hosting configuration system.")
+            ),
+                Wrapper::create($redirectGrid)
+                    ->displayUnless('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end()
+            ]
+        );
 
         return $fields;
     }
