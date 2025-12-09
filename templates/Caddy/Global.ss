@@ -15,5 +15,4 @@
         tls_insecure   true
     }
 <% end_if %>
-
 }
