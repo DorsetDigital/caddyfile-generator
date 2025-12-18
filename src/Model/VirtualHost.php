@@ -2,6 +2,7 @@
 
 namespace DorsetDigital\Caddy\Model;
 
+use DorsetDigital\Caddy\Admin\SitesAdmin;
 use SilverStripe\Admin\CMSEditLinkExtension;
 use SilverStripe\AssetAdmin\Forms\UploadField;
 use SilverStripe\Assets\File;
