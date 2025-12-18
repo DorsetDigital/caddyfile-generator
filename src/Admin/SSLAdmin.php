@@ -2,7 +2,7 @@
 
 namespace DorsetDigital\Caddy\Admin;
 
-use DorsetDigital\Caddy\Admin\VirtualHost;
+use DorsetDigital\Caddy\Model\SSLCertificate;
 use SilverStripe\Admin\ModelAdmin;
 
 /**

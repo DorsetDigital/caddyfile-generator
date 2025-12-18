@@ -12,6 +12,8 @@ use SilverStripe\Forms\HeaderField;
 use SilverStripe\Forms\LiteralField;
 use SilverStripe\View\HTML;
 use SilverStripe\View\Requirements;
+use SilverStripe\Core\Injector\Injector;
+use Psr\Log\LoggerInterface;
 
 class DeploymentAdmin extends LeftAndMain
 {
@@ -105,6 +107,7 @@ class DeploymentAdmin extends LeftAndMain
                 ]));
 
         } catch (\Exception $e) {
+            Injector::inst()->get(LoggerInterface::class)->error($e->getMessage());
             return $this->jsonError($e->getMessage(), 500);
         }
     }

@@ -3,6 +3,7 @@
 namespace DorsetDigital\Caddy\Admin;
 
 use SilverStripe\Admin\ModelAdmin;
+use DorsetDigital\Caddy\Model\DBCredentials;
 
 /**
  * Class \DorsetDigital\Caddy\Admin\DBCredentialsAdmin

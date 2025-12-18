@@ -1,6 +1,6 @@
 <?php
 
-namespace DorsetDigital\Caddy\Admin;
+namespace DorsetDigital\Caddy\Model;
 
 use SilverStripe\Core\Validation\ValidationResult;
 use SilverStripe\Forms\CheckboxField;

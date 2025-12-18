@@ -2,7 +2,7 @@
 
 namespace DorsetDigital\Caddy\Helper;
 
-use DorsetDigital\Caddy\Admin\VirtualHost;
+use DorsetDigital\Caddy\Model\VirtualHost;
 use SilverStripe\Core\Injector\Injectable;
 use SilverStripe\PolyExecution\PolyOutput;
 use SilverStripe\SiteConfig\SiteConfig;
@@ -35,22 +35,52 @@ class DeploymentHelper
         }
 
         $fileContents = preg_replace("/^\s*[\r\n]+/m", "", $fileContents);
-
         $adminFileContents = $this->getGlobalOptions();
-        $hostDirsList = implode("\n", CaddyHelper::generateHostDirsList())."\n";
+        $monitorHelper = UptimeMonitorHelper::create();
+        $requiredMonitors = $monitorHelper->getRequiredMonitors();
+        $retiringMonitors = $monitorHelper->getRetiredMonitors();
 
         if ($this->dryRun) {
-            $this->addMessage("Config files built.  DRY RUN - Not pushing to respository...");
+            if ($requiredMonitors->count() > 0) {
+                $monitorMessage = "<pre>";
+                foreach ($requiredMonitors as $monitor) {
+                    $monitorMessage .= "<br>".$monitor->VirtualHost()->HostName;
+                }
+                $monitorMessage .= "</pre>";
+            }
+            else {
+                $monitorMessage = "No new monitors required";
+            }
+
+            if ($retiringMonitors->count() > 0) {
+                $monitorMessage = "<pre>";
+                foreach ($retiringMonitors as $monitor) {
+                    $monitorMessage .= "<br>Retiring ".$monitor->VirtualHost()->HostName;
+                }
+                $monitorMessage .= "</pre>";
+            }
+            else {
+                $monitorMessage .= "<br>No monitors retiring";
+            }
+
+            $this->addMessage("DRY RUN - Not pushing to repository...");
+            $this->addMessage("Getting uptime monitor requirements...");
+            $this->addMessage($monitorMessage);
+            $this->addMessage("Config files built.");
             $this->addMessage('<pre>'.$fileContents.'</pre>');
             return true;
         }
 
+        $this->addMessage($monitorHelper->addNewMonitors());
+        $this->addMessage($monitorHelper->cleanUpMonitors());
+
         $this->addMessage("Config files built.  Pushing to respository...");
+
+        //return true; //DEBUGGING
 
         $helper = BitbucketHelper::create();
         $bitbucketRes[] = $helper->commitFile($fileContents, '/Caddyfile')->getMessage();
         $bitbucketRes[] = $helper->commitFile($adminFileContents, '/admin.json')->getMessage();
-        $bitbucketRes[] = $helper->commitFile($hostDirsList, '/host-dirs')->getMessage();
 
         $config = SiteConfig::current_site_config();
         if ($config->EnableWAF) {

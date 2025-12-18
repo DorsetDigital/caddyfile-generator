@@ -2,40 +2,13 @@
 
 namespace DorsetDigital\Caddy\Helper;
 
-use DorsetDigital\Caddy\Admin\VirtualHost;
+use DorsetDigital\Caddy\Model\VirtualHost;
 use SilverStripe\SiteConfig\SiteConfig;
 use Psr\Log\LoggerInterface;
 use SilverStripe\Core\Injector\Injector;
 
 class CaddyHelper
 {
-    /**
-     * Get a list of all the host document roots
-     * @return array
-     */
-    public static function generateHostDirsList(): array
-    {
-        //We always want the system dirs
-        $dirs = [
-            self::getFullPathForHostDir(VirtualHost::HOST_DIRECTORY_MAINTENANCE),
-            self::getFullPathForHostDir(VirtualHost::HOST_DIRECTORY_COMINGSOON)
-        ];
-        /**
-         * @var VirtualHost $host
-         */
-        foreach (VirtualHost::get() as $host) {
-            if (($host->HostType === VirtualHost::HOST_TYPE_HOST) && ($host->DocumentRoot != '')) {
-                $dirs[] = self::getFullPathForHostDir($host->DocumentRoot);
-            }
-        }
-        return array_unique($dirs);
-    }
-
-    private static function getFullPathForHostDir($dir) {
-        $config = SiteConfig::current_site_config();
-        $basePath = trim($config->VirtualHostCaddyRoot, '/');
-        return sprintf('/%s/%s', $basePath, $dir);
-    }
 
     public static function getServerTLSOptions(VirtualHost $site)
     {

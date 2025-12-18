@@ -1,6 +1,6 @@
 <?php
 
-namespace DorsetDigital\Caddy\Admin;
+namespace DorsetDigital\Caddy\Model;
 
 use SilverStripe\Admin\CMSEditLinkExtension;
 use SilverStripe\AssetAdmin\Forms\UploadField;
@@ -107,6 +107,7 @@ class VirtualHost extends DataObject
         'RemoveForwardedHeader' => 'Boolean',
         'RedirectPaths' => 'Boolean',
         'RedirectPermanent' => 'Boolean',
+        'UptimeMonitorEnabled' => 'Boolean',
     ];
 
     private static $has_one = [
@@ -114,6 +115,7 @@ class VirtualHost extends DataObject
         'TLSCert' => File::class,
         'SSLCertificate' => SSLCertificate::class,
         'AuthCredentials' => BasicAuthCreds::class,
+        'UptimeMonitor' => UptimeMonitor::class,
     ];
 
     private static $has_many = [
@@ -158,12 +160,13 @@ class VirtualHost extends DataObject
         foreach (array_keys(self::$db) as $dataField) {
             $fields->removeByName($dataField);
         }
-        $fields->removeByName(['TLSKey', 'TLSCert', 'SSLCertificateID', 'AuthCredentialsID', 'RedirectRules']);
+        $fields->removeByName(['TLSKey', 'TLSCert', 'SSLCertificateID', 'AuthCredentialsID', 'RedirectRules', 'UptimeMonitorID']);
 
         $fields->addFieldsToTab('Root.Main', [
             TextField::create('Title', 'Friendly Name'),
             TextField::create('HostName', 'Hostname')
                 ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end(),
+            CheckboxField::create('UptimeMonitorEnabled', 'Add uptime monitoring'),
             DropdownField::create('SiteMode', 'Site Mode', $this->getSiteModes()),
             TextField::create('DevDomainURI', 'Dev Domain', $this->getDevURI())
                 ->setReadonly(true)
@@ -247,12 +250,12 @@ class VirtualHost extends DataObject
             GridFieldConfig_RecordEditor::create());
 
         $fields->addFieldsToTab('Root.Redirects', [
-            LiteralField::create('redirectnote',
-            HTML::createTag('p', [
-                'class' => 'alert alert-warning mb-4'
-            ],
-            "Are you sure you should be doing this?   Redirects should generally be added to the application, not to the hosting!  Redirects should be used sparingly and only when absolutely necessary - they use valuable memory in the hosting configuration system.")
-            ),
+                LiteralField::create('redirectnote',
+                    HTML::createTag('p', [
+                        'class' => 'alert alert-warning mb-4'
+                    ],
+                        "Are you sure you should be doing this?   Redirects should generally be added to the application, not to the hosting!  Redirects should be used sparingly and only when absolutely necessary - they use valuable memory in the hosting configuration system.")
+                ),
                 Wrapper::create($redirectGrid)
                     ->displayUnless('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end()
             ]
@@ -322,6 +325,34 @@ class VirtualHost extends DataObject
         ];
     }
 
+    public function onBeforeWrite()
+    {
+        parent::onBeforeWrite();
+        if ($this->UptimeMonitorID < 1) {
+            $enabled = ($this->UptimeMonitorEnabled == true);
+            $monitor = UptimeMonitor::create([
+                'Active' => $enabled,
+            ]);
+            $monitor->write();
+            $this->UptimeMonitorID = $monitor->ID;
+        }
+        else {
+            if ($this->UptimeMonitorEnabled != true) {
+                $this->UptimeMonitor()->update([
+                   'Active' => false,
+                ])->write();
+            }
+        }
+    }
+
+    public function onBeforeDelete()
+    {
+        parent::onBeforeDelete();
+        if ($this->UptimeMonitorID > 0) {
+            $this->UptimeMonitor()->update(['Active' => false])->write();
+        }
+    }
+
     public function onAfterWrite()
     {
         parent::onAfterWrite();
@@ -376,6 +407,61 @@ class VirtualHost extends DataObject
             && (!str_starts_with($this->HostName, 'www'))) {
             $result->addError("Cannot redirect to www if the host doesn't begin with www");
         }
+
+        //Check for exact host matches
+        $siteCheck = self::get()->filter([
+            'HostName' => $this->HostName,
+        ])->exclude([
+            'ID' => $this->ID,
+        ]);
+
+        if ($siteCheck->count() > 0) {
+            $result->addError('This host already exists.');
+        }
+
+        //If this hostname begins with 'www' check for the apex domain existence along with a www redirect
+        if (str_starts_with($this->HostName, 'www.')) {
+            $apex = substr($this->HostName, strlen('www.'));
+
+            $siteCheck = self::get()->filter([
+                'HostName' => $apex,
+                'HostRedirect' => VirtualHost::REDIRECT_WWW_TO_ROOT,
+            ])->exclude([
+                'ID' => $this->ID,
+            ]);
+
+            if ($siteCheck->count() > 0) {
+                $result->addError(sprintf('The www version of this domain is already covered by %s', $siteCheck->first()->Title));
+            }
+        }
+
+        //If this host has a www redirect, we need to check if the www version of the host is already present
+        if ($this->HostRedirect == VirtualHost::REDIRECT_WWW_TO_ROOT) {
+            $siteCheck = self::get()->filter([
+                'HostName' => 'www.' . $this->HostName,
+            ])->exclude([
+                'ID' => $this->ID,
+            ]);
+            if ($siteCheck->count() > 0) {
+                $result->addError(sprintf('The www version of this domain is already covered by %s, so you cannot redirect www to root.', $siteCheck->first()->Title));
+            }
+        }
+
+        //If this host is a www, and has a root to www redirect, we need to check for the apex domain elsewhere
+        if ($this->HostRedirect == VirtualHost::REDIRECT_ROOT_TO_WWW) {
+            $apex = substr($this->HostName, strlen('www.'));
+
+            $siteCheck = self::get()->filter([
+                'HostName' => $apex
+            ])->exclude([
+                'ID' => $this->ID,
+            ]);
+
+            if ($siteCheck->count() > 0) {
+                $result->addError(sprintf('The root version of this domain is already covered by %s, so you cannot redirect the root to www', $siteCheck->first()->Title));
+            }
+        }
+
 
         if ($this->HostType == VirtualHost::HOST_TYPE_REDIRECT) {
             if ($this->RedirectTo == '') {

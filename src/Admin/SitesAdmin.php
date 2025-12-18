@@ -2,7 +2,7 @@
 
 namespace DorsetDigital\Caddy\Admin;
 
-use DorsetDigital\Caddy\Admin\VirtualHost;
+use DorsetDigital\Caddy\Model\VirtualHost;
 use SilverStripe\Admin\ModelAdmin;
 use SilverStripe\Forms\GridField\GridFieldDetailForm;
 use SilverStripe\Forms\GridField\GridField;

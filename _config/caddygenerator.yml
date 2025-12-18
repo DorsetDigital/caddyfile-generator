@@ -20,3 +20,12 @@ SilverStripe\Assets\File:
     - pem
     - key
     - conf
+
+SilverStripe\Core\Injector\Injector:
+  # This determines the class to use for the uptime client
+  DorsetDigital\Caddy\Client\UptimeClientInterface:
+    class: DorsetDigital\Caddy\Client\CheckMateClient
+
+  DorsetDigital\Caddy\Helper\UptimeMonitorHelper:
+    constructor:
+      - '%$DorsetDigital\Caddy\Client\UptimeClientInterface'

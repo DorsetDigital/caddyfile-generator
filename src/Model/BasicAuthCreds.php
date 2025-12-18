@@ -1,6 +1,6 @@
 <?php
 
-namespace DorsetDigital\Caddy\Admin;
+namespace DorsetDigital\Caddy\Model;
 
 use SilverStripe\AssetAdmin\Forms\UploadField;
 use SilverStripe\Core\Validation\ValidationException;
