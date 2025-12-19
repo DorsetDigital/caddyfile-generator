@@ -12,7 +12,8 @@
   ],
   "require": {
     "unclecheese/display-logic": "^4",
-    "symbiote/silverstripe-gridfieldextensions": "^5"
+    "symbiote/silverstripe-gridfieldextensions": "^5",
+    "ramsey/uuid": "^4"
   },
   "autoload": {
     "psr-4": {

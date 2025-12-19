@@ -2,11 +2,14 @@
 
 namespace DorsetDigital\Caddy\Extension;
 
+use DorsetDigital\Caddy\Model\PHPBackend;
 use SilverStripe\AssetAdmin\Forms\UploadField;
 use SilverStripe\Assets\File;
 use SilverStripe\Core\Extension;
 use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\FieldList;
+use SilverStripe\Forms\GridField\GridField;
+use SilverStripe\Forms\GridField\GridFieldConfig_RecordEditor;
 use SilverStripe\Forms\HeaderField;
 use SilverStripe\Forms\LiteralField;
 use SilverStripe\Forms\NumericField;
@@ -19,11 +22,14 @@ use SilverStripe\ORM\DataExtension;
  * @property \SilverStripe\SiteConfig\SiteConfig|\DorsetDigital\Caddy\Extension\SiteConfigExtension $owner
  * @property ?string $RedisHost
  * @property int $RedisPort
+ * @property bool $RedisTLS
+ * @property bool $RedisCluster
  * @property ?string $RedisUser
  * @property ?string $RedisPassword
  * @property ?string $RedisKeyPrefix
  * @property ?string $VirtualHostCaddyRoot
  * @property ?string $VirtualHostPHPRoot
+ * @property ?string $VirtualHostLocalRoot
  * @property ?string $PHPCGIIP
  * @property ?string $TLSFilesCaddyRoot
  * @property ?string $TLSFilesRoot
@@ -49,6 +55,7 @@ class SiteConfigExtension extends Extension
         'RedisKeyPrefix' => 'Varchar',
         'VirtualHostCaddyRoot' => 'Varchar',
         'VirtualHostPHPRoot' => 'Varchar',
+        'VirtualHostLocalRoot' => 'Varchar',
         'PHPCGIIP' => 'Varchar',
         'TLSFilesCaddyRoot' => 'Varchar',
         'TLSFilesRoot' => 'Varchar',
@@ -90,6 +97,8 @@ class SiteConfigExtension extends Extension
                 ->setDescription('Absolute path to the virtualhost root inside a Caddy instance'),
             TextField::create('VirtualHostPHPRoot', 'PHP Virtualhost root')
                 ->setDescription('Absolute path to the virtualhost root inside a PHP instance'),
+            TextField::create('VirtualHostLocalRoot', 'Virtualhost root')
+                ->setDescription('Absolute path to the virtualhost root on THIS device'),
             TextField::create('TLSFilesRoot', 'TLS files root')
                 ->setDescription('Absolute path to the TLS file storage root on THIS device'),
             TextField::create('TLSFilesCaddyRoot', 'Caddy TLS files root')
@@ -109,6 +118,10 @@ class SiteConfigExtension extends Extension
             CheckboxField::create('IncludeOWASPRules', 'Include OWASP rules'),
             TextField::create('WAFConfigCaddyPath')
                 ->setDescription('WAF config files path inside a Caddy instance'),
+        ]);
+
+        $fields->addFieldsToTab('Root.PHPBackends', [
+           GridField::create('PHPBackends', 'PHP Backends', PHPBackend::get(), GridFieldConfig_RecordEditor::create())
         ]);
     }
 

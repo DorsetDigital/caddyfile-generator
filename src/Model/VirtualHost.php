@@ -3,6 +3,8 @@
 namespace DorsetDigital\Caddy\Model;
 
 use DorsetDigital\Caddy\Admin\SitesAdmin;
+use DorsetDigital\Caddy\Helper\FilesystemHelper;
+use Ramsey\Uuid\Uuid;
 use SilverStripe\Admin\CMSEditLinkExtension;
 use SilverStripe\AssetAdmin\Forms\UploadField;
 use SilverStripe\Assets\File;
@@ -36,7 +38,6 @@ use UncleCheese\DisplayLogic\Forms\Wrapper;
  * @property ?string $RedirectTo
  * @property ?string $ProxyHost
  * @property bool $EnablePHP
- * @property ?string $PHPVersion
  * @property int $HostRedirect
  * @property ?string $ManualConfig
  * @property ?string $DeployedKeyFile
@@ -44,11 +45,24 @@ use UncleCheese\DisplayLogic\Forms\Wrapper;
  * @property ?string $UpstreamHostHeader
  * @property bool $EnableWAF
  * @property bool $RemoveForwardedHeader
+ * @property bool $RedirectPaths
+ * @property bool $RedirectPermanent
+ * @property bool $UptimeMonitorEnabled
  * @property int $TLSKeyID
  * @property int $TLSCertID
+ * @property int $SSLCertificateID
+ * @property int $AuthCredentialsID
+ * @property int $UptimeMonitorID
+ * @property int $PHPBackendID
  * @method \SilverStripe\Assets\File TLSKey()
  * @method \SilverStripe\Assets\File TLSCert()
+ * @method \DorsetDigital\Caddy\Model\SSLCertificate SSLCertificate()
+ * @method \DorsetDigital\Caddy\Model\BasicAuthCreds AuthCredentials()
+ * @method \DorsetDigital\Caddy\Model\UptimeMonitor UptimeMonitor()
+ * @method \DorsetDigital\Caddy\Model\PHPBackend PHPBackend()
+ * @method \SilverStripe\ORM\DataList|\DorsetDigital\Caddy\Model\RedirectRule[] RedirectRules()
  * @mixin \SilverStripe\Versioned\Versioned
+ * @mixin \SilverStripe\Admin\CMSEditLinkExtension
  * @mixin \SilverStripe\Assets\Shortcodes\FileLinkTracking
  * @mixin \SilverStripe\Assets\AssetControlExtension
  * @mixin \SilverStripe\CMS\Model\SiteTreeLinkTracking
@@ -64,12 +78,6 @@ class VirtualHost extends DataObject
     const HOST_TYPE_REDIRECT = 1;
     const HOST_TYPE_PROXY = 2;
     const HOST_TYPE_MANUAL = 3;
-    const PHP_VERSION_PORTS = [
-        '8.1' => 9081,
-        '8.2' => 9082,
-        '8.3' => 9083,
-        '8.4' => 9084,
-    ];
     const TLS_AUTO = 0;
     const TLS_MANUAL = 1;
     const TLS_LOCAL = 2;
@@ -98,7 +106,6 @@ class VirtualHost extends DataObject
         'RedirectTo' => 'Varchar',
         'ProxyHost' => 'Varchar',
         'EnablePHP' => 'Boolean',
-        'PHPVersion' => 'Enum("8.1,8.2,8.3,8.4")',
         'HostRedirect' => 'Int',
         'ManualConfig' => 'Text',
         'DeployedKeyFile' => 'Varchar',
@@ -117,6 +124,7 @@ class VirtualHost extends DataObject
         'SSLCertificate' => SSLCertificate::class,
         'AuthCredentials' => BasicAuthCreds::class,
         'UptimeMonitor' => UptimeMonitor::class,
+        'PHPBackend' => PHPBackend::class,
     ];
 
     private static $has_many = [
@@ -161,7 +169,13 @@ class VirtualHost extends DataObject
         foreach (array_keys(self::$db) as $dataField) {
             $fields->removeByName($dataField);
         }
-        $fields->removeByName(['TLSKey', 'TLSCert', 'SSLCertificateID', 'AuthCredentialsID', 'RedirectRules', 'UptimeMonitorID']);
+        $fields->removeByName(['TLSKey', 'TLSCert', 'SSLCertificateID', 'AuthCredentialsID', 'RedirectRules', 'UptimeMonitorID', 'PHPBackendID']);
+
+        $absoluteRoot = '';
+        if ($this->DocumentRoot) {
+            $fsHelper = FilesystemHelper::create();
+            $absoluteRoot = $fsHelper->getFullHostPath($this->DocumentRoot);
+        }
 
         $fields->addFieldsToTab('Root.Main', [
             TextField::create('Title', 'Friendly Name'),
@@ -194,16 +208,21 @@ class VirtualHost extends DataObject
             DropdownField::create('SSLCertificateID', 'SSL Certificate', SSLCertificate::get()->map('ID', 'Title'))
                 ->setEmptyString('Please select')
                 ->hideUnless('TLSMethod')->isEqualTo(self::TLS_STORED)->end(),
-            TextField::create('DocumentRoot')
-                ->setDescription('Relative to virtualhosts root directory, no leading or trailing slashes')
+            TextField::create('DocumentRoot', 'Document Root')
+                ->setDescription('Leave blank for auto-generation (recommended).  Relative to virtualhosts root directory, no leading or trailing slashes.')
+                ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_HOST)->end(),
+            TextField::create('AbsoluteRoot', 'Absolute Root Path')
+                ->setValue($absoluteRoot)
+                ->setDescription('Absolute path to the root (for deployment)')
+                ->setReadonly(true)
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_HOST)->end(),
             CheckboxField::create('EnablePHP', 'Enable PHP')
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_HOST)->end(),
             DropdownField::create(
-                'PHPVersion',
+                'PHPBackendID',
                 'PHP Version',
-                singleton(VirtualHost::class)->dbObject('PHPVersion')->enumValues()
-            )
+                PHPBackend::get()->map('ID', 'Title')
+            )->setEmptyString('Please select:')
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_HOST)
                 ->andIf('EnablePHP')->isChecked()
                 ->end(),
@@ -343,6 +362,11 @@ class VirtualHost extends DataObject
                    'Active' => false,
                 ])->write();
             }
+        }
+
+        if (($this->DocumentRoot == '') && ($this->HostType === self::HOST_TYPE_HOST)) {
+            $uuid = Uuid::uuid5(Uuid::NAMESPACE_URL, $this->HostName)->toString();
+            $this->DocumentRoot = $uuid;
         }
     }
 
@@ -494,6 +518,11 @@ class VirtualHost extends DataObject
             $result->addError("Please select an SSL certificate from the list");
         }
 
+        //Make sure we have PHP set up
+        if (($this->EnablePHP) && ($this->PHPBackendID < 1)) {
+            $result->addError("Please select a PHP version to use");
+        }
+
         return $result;
     }
 
@@ -633,13 +662,14 @@ class VirtualHost extends DataObject
 
     public function getPHPCGIURI()
     {
-        $config = SiteConfig::current_site_config();
-        return sprintf('%s:%d', $config->PHPCGIIP, $this->getPHPPort());
+        return $this->PHPBackend()->URI;
     }
 
-    private function getPHPPort()
-    {
-        return self::PHP_VERSION_PORTS[$this->PHPVersion] ?? array_shift(self::PHP_VERSION_PORTS);
+
+    public static function getStandardSites() {
+        return self::get()->filter([
+            'HostType' => self::HOST_TYPE_HOST
+        ]);
     }
 
 }

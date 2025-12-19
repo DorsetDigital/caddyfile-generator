@@ -37,8 +37,10 @@ class DeploymentHelper
         $fileContents = preg_replace("/^\s*[\r\n]+/m", "", $fileContents);
         $adminFileContents = $this->getGlobalOptions();
         $monitorHelper = UptimeMonitorHelper::create();
+        $fsHelper = FilesystemHelper::create();
         $requiredMonitors = $monitorHelper->getRequiredMonitors();
         $retiringMonitors = $monitorHelper->getRetiredMonitors();
+        $requiredDirs = $fsHelper->getNewHostDirectories();
 
         if ($this->dryRun) {
             if ($requiredMonitors->count() > 0) {
@@ -66,6 +68,13 @@ class DeploymentHelper
             $this->addMessage("DRY RUN - Not pushing to repository...");
             $this->addMessage("Getting uptime monitor requirements...");
             $this->addMessage($monitorMessage);
+            $this->addMessage("Checking document roots...");
+            if (count($requiredDirs) < 1) {
+                $this->addMessage('No directories required.');
+            }
+            else {
+                $this->addMessage('Creating directores: '.implode(', ', $requiredDirs));
+            }
             $this->addMessage("Config files built.");
             $this->addMessage('<pre>'.$fileContents.'</pre>');
             return true;
@@ -73,6 +82,7 @@ class DeploymentHelper
 
         $this->addMessage($monitorHelper->addNewMonitors());
         $this->addMessage($monitorHelper->cleanUpMonitors());
+        $this->addMessage($fsHelper->createNewDocumentRoots());
 
         $this->addMessage("Config files built.  Pushing to respository...");
 

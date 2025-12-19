@@ -17,7 +17,7 @@ use SilverStripe\ORM\DataObject;
  * @property ?string $DBName
  * @property int $Status
  * @property int $VirtualHostID
- * @method \DorsetDigital\Caddy\Admin\VirtualHost VirtualHost()
+ * @method \DorsetDigital\Caddy\Model\VirtualHost VirtualHost()
  * @mixin \SilverStripe\Assets\Shortcodes\FileLinkTracking
  * @mixin \SilverStripe\Assets\AssetControlExtension
  * @mixin \SilverStripe\CMS\Model\SiteTreeLinkTracking

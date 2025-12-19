@@ -10,6 +10,10 @@ use SilverStripe\Versioned\VersionedGridFieldItemRequest;
 
 
 
+/**
+ * Class \DorsetDigital\Caddy\Admin\SitesAdmin
+ *
+ */
 class SitesAdmin extends ModelAdmin
 {
     private static $managed_models = [

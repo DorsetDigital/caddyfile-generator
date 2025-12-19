@@ -15,6 +15,10 @@ use SilverStripe\View\Requirements;
 use SilverStripe\Core\Injector\Injector;
 use Psr\Log\LoggerInterface;
 
+/**
+ * Class \DorsetDigital\Caddy\Admin\DeploymentAdmin
+ *
+ */
 class DeploymentAdmin extends LeftAndMain
 {
     private static $url_segment = 'deployment';

@@ -10,6 +10,23 @@ use SilverStripe\Forms\LiteralField;
 use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\DataObject;
 
+/**
+ * Class \DorsetDigital\Caddy\Model\SSLCertificate
+ *
+ * @property ?string $Title
+ * @property ?string $DeployedKeyFile
+ * @property ?string $DeployedCertificateFile
+ * @property int $TLSKeyID
+ * @property int $TLSCertID
+ * @method \SilverStripe\Assets\File TLSKey()
+ * @method \SilverStripe\Assets\File TLSCert()
+ * @method \SilverStripe\ORM\DataList|\DorsetDigital\Caddy\Model\VirtualHost[] VirtualHosts()
+ * @mixin \SilverStripe\Assets\Shortcodes\FileLinkTracking
+ * @mixin \SilverStripe\Assets\AssetControlExtension
+ * @mixin \SilverStripe\CMS\Model\SiteTreeLinkTracking
+ * @mixin \SilverStripe\Versioned\RecursivePublishable
+ * @mixin \SilverStripe\Versioned\VersionedStateExtension
+ */
 class SSLCertificate extends DataObject
 {
     private static $table_name = 'SSLCertificate';
