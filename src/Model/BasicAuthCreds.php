@@ -9,6 +9,19 @@ use SilverStripe\Forms\LiteralField;
 use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\DataObject;
 
+/**
+ * Class \DorsetDigital\Caddy\Model\BasicAuthCreds
+ *
+ * @property ?string $Title
+ * @property ?string $Username
+ * @property ?string $Password
+ * @method \SilverStripe\ORM\DataList|\DorsetDigital\Caddy\Model\VirtualHost[] VirtualHosts()
+ * @mixin \SilverStripe\Assets\Shortcodes\FileLinkTracking
+ * @mixin \SilverStripe\Assets\AssetControlExtension
+ * @mixin \SilverStripe\CMS\Model\SiteTreeLinkTracking
+ * @mixin \SilverStripe\Versioned\RecursivePublishable
+ * @mixin \SilverStripe\Versioned\VersionedStateExtension
+ */
 class BasicAuthCreds extends DataObject
 {
     private static $table_name = 'BasicAuthCreds';
