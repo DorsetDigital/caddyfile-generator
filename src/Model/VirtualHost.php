@@ -48,6 +48,8 @@ use UncleCheese\DisplayLogic\Forms\Wrapper;
  * @property bool $RedirectPaths
  * @property bool $RedirectPermanent
  * @property bool $UptimeMonitorEnabled
+ * @property bool $EnableZeroDowntime
+ * @property ?string $DocumentRootSuffix
  * @property int $TLSKeyID
  * @property int $TLSCertID
  * @property int $SSLCertificateID
@@ -116,6 +118,8 @@ class VirtualHost extends DataObject
         'RedirectPaths' => 'Boolean',
         'RedirectPermanent' => 'Boolean',
         'UptimeMonitorEnabled' => 'Boolean',
+        'EnableZeroDowntime' => 'Boolean',
+        'DocumentRootSuffix' => 'Varchar',
     ];
 
     private static $has_one = [
@@ -137,7 +141,8 @@ class VirtualHost extends DataObject
     ];
 
     private static $defaults = [
-        'EnableHTTPS' => true
+        'EnableHTTPS' => true,
+        'EnableZeroDowntime' => true,
     ];
 
     private static $summary_fields = [
@@ -162,6 +167,13 @@ class VirtualHost extends DataObject
     ];
 
     private static $cms_edit_owner = SitesAdmin::class;
+
+    public static function getStandardSites()
+    {
+        return self::get()->filter([
+            'HostType' => self::HOST_TYPE_HOST
+        ]);
+    }
 
     public function getCMSFields()
     {
@@ -215,6 +227,12 @@ class VirtualHost extends DataObject
                 ->setValue($absoluteRoot)
                 ->setDescription('Absolute path to the root (for deployment)')
                 ->setReadonly(true)
+                ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_HOST)->end(),
+            CheckboxField::create('EnableZeroDowntime', 'Configure for zero downtime deployment')
+                ->setDescription('Ensures Caddy is pointing to the correct "current" release directory')
+                ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_HOST)->end(),
+            TextField::create('DocumentRootSuffix', 'Document Root Suffix')
+                ->setDescription('Adds a suffix to the document root for Caddy, so that files can be served from a directory within the document root (eg. public)')
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_HOST)->end(),
             CheckboxField::create('EnablePHP', 'Enable PHP')
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_HOST)->end(),
@@ -355,11 +373,10 @@ class VirtualHost extends DataObject
             ]);
             $monitor->write();
             $this->UptimeMonitorID = $monitor->ID;
-        }
-        else {
+        } else {
             if ($this->UptimeMonitorEnabled != true) {
                 $this->UptimeMonitor()->update([
-                   'Active' => false,
+                    'Active' => false,
                 ])->write();
             }
         }
@@ -367,6 +384,9 @@ class VirtualHost extends DataObject
         if (($this->DocumentRoot == '') && ($this->HostType === self::HOST_TYPE_HOST)) {
             $uuid = Uuid::uuid5(Uuid::NAMESPACE_URL, $this->HostName)->toString();
             $this->DocumentRoot = $uuid;
+        }
+        if ($this->DocumentRootSuffix) {
+            $this->DocumentRootSuffix = trim($this->DocumentRootSuffix, '/ ');
         }
     }
 
@@ -636,7 +656,22 @@ class VirtualHost extends DataObject
     {
         $config = SiteConfig::current_site_config();
         $basePath = trim($config->VirtualHostCaddyRoot, '/');
-        return sprintf('/%s/%s', $basePath, $this->DocumentRoot);
+
+        return sprintf('/%s/%s',
+            $basePath,
+            $this->getComputedDocumentRoot()
+        );
+    }
+
+    private function getComputedDocumentRoot()
+    {
+        $releaseDir = ($this->EnableZeroDowntime) ? '/current' : null;
+        $rootSuffix = ($this->DocumentRootSuffix) ? '/' . $this->DocumentRootSuffix : null;
+        return sprintf('%s%s%s',
+            $this->DocumentRoot,
+            $releaseDir,
+            $rootSuffix
+        );
     }
 
     public function getCurrentPHPRoot()
@@ -645,7 +680,7 @@ class VirtualHost extends DataObject
         $basePath = trim($config->VirtualHostPHPRoot, '/');
 
         $docRoot = match ($this->SiteMode) {
-            self::SITE_MODE_PROD => $this->DocumentRoot,
+            self::SITE_MODE_PROD => $this->getComputedDocumentRoot(),
             self::SITE_MODE_MAINTENANCE => '_maintenance',
             self::SITE_MODE_COMING => '_comingsoon'
         };
@@ -657,19 +692,12 @@ class VirtualHost extends DataObject
     {
         $config = SiteConfig::current_site_config();
         $basePath = trim($config->VirtualHostPHPRoot, '/');
-        return sprintf('/%s/%s', $basePath, $this->DocumentRoot);
+        return sprintf('/%s/%s', $basePath, $this->getComputedDocumentRoot());
     }
 
     public function getPHPCGIURI()
     {
         return $this->PHPBackend()->URI;
-    }
-
-
-    public static function getStandardSites() {
-        return self::get()->filter([
-            'HostType' => self::HOST_TYPE_HOST
-        ]);
     }
 
 }
