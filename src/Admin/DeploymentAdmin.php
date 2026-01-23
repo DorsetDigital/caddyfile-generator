@@ -112,7 +112,7 @@ class DeploymentAdmin extends LeftAndMain
 
         } catch (\Exception $e) {
             Injector::inst()->get(LoggerInterface::class)->error($e->getMessage());
-            return $this->jsonError($e->getMessage(), 500);
+            return $this->jsonError(500, $e->getMessage());
         }
     }
 
