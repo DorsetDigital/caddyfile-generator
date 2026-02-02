@@ -32,6 +32,7 @@ use UncleCheese\DisplayLogic\Forms\Wrapper;
  * @property ?string $HostName
  * @property int $HostType
  * @property bool $EnableHTTPS
+ * @property bool $CacheAssets
  * @property int $TLSMethod
  * @property ?string $DocumentRoot
  * @property ?string $SiteProxy
@@ -102,6 +103,7 @@ class VirtualHost extends DataObject
         'HostName' => 'Varchar',
         'HostType' => 'Int',
         'EnableHTTPS' => 'Boolean',
+        'CacheAssets' => 'Boolean',
         'TLSMethod' => 'Int',
         'DocumentRoot' => 'Varchar',
         'SiteProxy' => 'Varchar',
@@ -194,6 +196,8 @@ class VirtualHost extends DataObject
             TextField::create('HostName', 'Hostname')
                 ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end(),
             CheckboxField::create('UptimeMonitorEnabled', 'Add uptime monitoring'),
+            CheckboxField::create('CacheAssets', 'Cache assets')
+                ->setDescription(_t(__CLASS__ . '.CacheAssetsDesc', 'Sets cache control headers for fonts, images and static assets')),
             DropdownField::create('SiteMode', 'Site Mode', $this->getSiteModes()),
             TextField::create('DevDomainURI', 'Dev Domain', $this->getDevURI())
                 ->setReadonly(true)
