@@ -40,7 +40,7 @@ class CheckMateClient implements UptimeClientInterface
 
         $this->client = new Client([
             'base_uri' => $this->config()->get('base_url'),
-            'timeout' => 5.0,
+            'timeout' => 10.0,
             'headers' => [
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/json',
@@ -273,7 +273,6 @@ class CheckMateClient implements UptimeClientInterface
      * @param string $endpoint API endpoint
      * @param array|null $data Request data for POST/PATCH/PUT
      * @return mixed|array Decoded API response
-     * @throws \GuzzleHttp\Exception\GuzzleException
      */
     private function doRequest($method, $endpoint, $data = null)
     {
@@ -326,11 +325,9 @@ class CheckMateClient implements UptimeClientInterface
                     'error' => $errorBody ?: $e->getMessage()
                 ]
             );
-
-            throw new \Exception(
-                "HTTP Error {$statusCode}: " . ($errorBody ?: $e->getMessage())
-            );
         }
+
+        return null;
     }
 
     /**

@@ -48,6 +48,9 @@ class UptimeMonitorHelper
                 $monitor->update(['MonitorID' => null])->write();
                 $messages[] = sprintf('Monitor ID %s was deleted.', $monitor->MonitorID);
             }
+            else {
+                $messages[] = sprintf('Failed to delete Monitor ID %s.', $monitor->MonitorID);
+            }
         }
         return implode("\n", $messages);
     }
