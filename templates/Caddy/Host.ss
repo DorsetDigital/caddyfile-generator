@@ -8,14 +8,13 @@ $CurrentHostName<% if not $EnableHTTPS %>:80<% end_if %> {
 <% end_if %>
 <% if $RedirectRules %><% include Caddy\Redirects %>
 <% end_if %>
-    header x-hosting "BBP Advanced Hosting"
-    root * $CaddyRoot
+header x-hosting "BBP Advanced Hosting"
+root * $CaddyRoot
 <% if $EnablePHP %>
     php_fastcgi $PHPCGIURI {
-        root $PHPRoot
-        env SS_BASE_URL $BaseURL
+    root $PHPRoot
     }
 <% end_if %>
-    encode gzip
-    file_server
+encode gzip
+file_server
 }

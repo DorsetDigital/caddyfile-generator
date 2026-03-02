@@ -2,7 +2,9 @@
 
 namespace DorsetDigital\Caddy\Client;
 
+use Exception;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\RequestException;
 use Psr\Log\LoggerInterface;
 use SilverStripe\Core\Config\Configurable;
@@ -35,7 +37,7 @@ class CheckMateClient implements UptimeClientInterface
         $this->password = Environment::getEnv('CHECKMATE_PASSWORD');
 
         if (empty($this->username) || empty($this->password)) {
-            throw new \Exception("Cannot start Checkmate client - missing required credentials from environment");
+            throw new Exception("Cannot start Checkmate client - missing required credentials from environment");
         }
 
         $this->client = new Client([
@@ -51,69 +53,12 @@ class CheckMateClient implements UptimeClientInterface
     }
 
     /**
-     * Fetch all team notifications from the API and cache them in the class property
-     *
-     * @return array Array of notification IDs
-     * @throws \GuzzleHttp\Exception\GuzzleException
-     */
-    public function fetchNotifications()
-    {
-        try {
-            $response = $this->doRequest('GET', 'notifications/team');
-
-            if (isset($response['data']) && is_array($response['data']) && !empty($response['data'])) {
-                // Cache the full notification data
-                $this->notifications = $response['data'];
-
-                $this->getLogger()->info(
-                    'Successfully fetched team notifications',
-                    ['count' => count($this->notifications)]
-                );
-
-                // Extract and return just the IDs
-                return array_map(function($notification) {
-                    return $notification['_id'];
-                }, $this->notifications);
-            }
-
-            $this->getLogger()->info('No team notifications found');
-            $this->notifications = [];
-            return [];
-
-        } catch (\Exception $e) {
-            $this->getLogger()->warning(
-                'Failed to fetch team notifications',
-                ['error' => $e->getMessage()]
-            );
-            $this->notifications = [];
-            return [];
-        }
-    }
-
-    /**
-     * Get cached notifications or fetch them if not already cached
-     *
-     * @return array Array of notification IDs
-     * @throws \GuzzleHttp\Exception\GuzzleException
-     */
-    public function getNotifications()
-    {
-        if ($this->notifications === null) {
-            return $this->fetchNotifications();
-        }
-
-        return array_map(function($notification) {
-            return $notification['_id'];
-        }, $this->notifications);
-    }
-
-    /**
      * Create a monitor with notifications
      *
      * @param string $name Monitor name
      * @param string $url URL to monitor
      * @return string|bool Monitor ID on success, false on failure
-     * @throws \GuzzleHttp\Exception\GuzzleException
+     * @throws GuzzleException
      */
     public function createMonitor($name, $url)
     {
@@ -161,7 +106,7 @@ class CheckMateClient implements UptimeClientInterface
                 );
                 return true;
 
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $this->getLogger()->error(
                     'Failed to retrieve monitor ID after creation',
                     ['error' => $e->getMessage(), 'url' => $url]
@@ -175,94 +120,59 @@ class CheckMateClient implements UptimeClientInterface
     }
 
     /**
-     * Delete a monitor
+     * Get cached notifications or fetch them if not already cached
      *
-     * @param string $monitorID Monitor ID to delete
-     * @return bool True on success
-     * @throws \GuzzleHttp\Exception\GuzzleException
+     * @return array Array of notification IDs
+     * @throws GuzzleException
      */
-    public function deleteMonitor($monitorID)
+    public function getNotifications()
     {
-        $response = $this->doRequest('DELETE', 'monitors/' . $monitorID);
-        $success = isset($response['success']) && $response['success'];
-
-        if ($success) {
-            $this->getLogger()->info('Monitor deleted successfully', ['id' => $monitorID]);
-        } else {
-            $this->getLogger()->error('Monitor deletion failed', ['id' => $monitorID]);
+        if ($this->notifications === null) {
+            return $this->fetchNotifications();
         }
 
-        return $success;
+        return array_map(function ($notification) {
+            return $notification['_id'];
+        }, $this->notifications);
     }
 
     /**
-     * Update a monitor
+     * Fetch all team notifications from the API and cache them in the class property
      *
-     * @param string $monitorID Monitor ID to update
-     * @param array $data Data to update
-     * @return mixed API response
-     * @throws \GuzzleHttp\Exception\GuzzleException
+     * @return array Array of notification IDs
+     * @throws GuzzleException
      */
-    public function updateMonitor($monitorID, $data = [])
-    {
-        $this->getLogger()->info('Updating monitor', ['id' => $monitorID]);
-        return $this->doRequest('PATCH', 'monitors/' . $monitorID, $data);
-    }
-
-    /**
-     * Get a specific monitor
-     *
-     * @param string $monitorID Monitor ID to retrieve
-     * @return mixed API response
-     * @throws \GuzzleHttp\Exception\GuzzleException
-     */
-    public function getMonitor($monitorID)
-    {
-        return $this->doRequest('GET', 'monitors/' . $monitorID);
-    }
-
-    /**
-     * Get authentication token, fetching from server if needed
-     *
-     * @return string Auth token
-     */
-    private function getToken()
-    {
-        if (!$this->token) {
-            $this->getAuthTokenFromServer();
-        }
-        return $this->token;
-    }
-
-    /**
-     * Authenticate with the API and retrieve an auth token
-     *
-     * @return bool True on success
-     * @throws \Exception
-     */
-    private function getAuthTokenFromServer()
+    public function fetchNotifications()
     {
         try {
-            $response = $this->client->post('auth/login', [
-                'json' => [
-                    'email' => $this->username,
-                    'password' => $this->password
-                ]
-            ]);
+            $response = $this->doRequest('GET', 'notifications/team');
 
-            $data = json_decode($response->getBody(), true);
+            if (isset($response['data']) && is_array($response['data']) && !empty($response['data'])) {
+                // Cache the full notification data
+                $this->notifications = $response['data'];
 
-            if (isset($data['data']['token'])) {
-                $this->token = $data['data']['token'];
-                $this->getLogger()->info('Successfully authenticated with Checkmate API');
-                return true;
+                $this->getLogger()->info(
+                    'Successfully fetched team notifications',
+                    ['count' => count($this->notifications)]
+                );
+
+                // Extract and return just the IDs
+                return array_map(function ($notification) {
+                    return $notification['_id'];
+                }, $this->notifications);
             }
 
-            throw new \Exception('Login failed: No token received in response');
+            $this->getLogger()->info('No team notifications found');
+            $this->notifications = [];
+            return [];
 
-        } catch (RequestException $e) {
-            $this->getLogger()->error('Authentication failed', ['error' => $e->getMessage()]);
-            throw new \Exception('Login failed: ' . $e->getMessage());
+        } catch (Exception $e) {
+            $this->getLogger()->warning(
+                'Failed to fetch team notifications',
+                ['error' => $e->getMessage()]
+            );
+            $this->notifications = [];
+            return [];
         }
     }
 
@@ -307,7 +217,7 @@ class CheckMateClient implements UptimeClientInterface
                     'Received HTML response instead of JSON',
                     ['endpoint' => $endpoint, 'method' => $method]
                 );
-                throw new \Exception("Invalid endpoint or authentication error: {$endpoint}");
+                throw new Exception("Invalid endpoint or authentication error: {$endpoint}");
             }
 
             return $decoded;
@@ -331,6 +241,51 @@ class CheckMateClient implements UptimeClientInterface
     }
 
     /**
+     * Get authentication token, fetching from server if needed
+     *
+     * @return string Auth token
+     */
+    private function getToken()
+    {
+        if (!$this->token) {
+            $this->getAuthTokenFromServer();
+        }
+        return $this->token;
+    }
+
+    /**
+     * Authenticate with the API and retrieve an auth token
+     *
+     * @return bool True on success
+     * @throws Exception
+     */
+    private function getAuthTokenFromServer()
+    {
+        try {
+            $response = $this->client->post('auth/login', [
+                'json' => [
+                    'email' => $this->username,
+                    'password' => $this->password
+                ]
+            ]);
+
+            $data = json_decode($response->getBody(), true);
+
+            if (isset($data['data']['token'])) {
+                $this->token = $data['data']['token'];
+                $this->getLogger()->info('Successfully authenticated with Checkmate API');
+                return true;
+            }
+
+            throw new Exception('Login failed: No token received in response');
+
+        } catch (RequestException $e) {
+            $this->getLogger()->error('Authentication failed', ['error' => $e->getMessage()]);
+            throw new Exception('Login failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Get the logger instance
      *
      * @return LoggerInterface
@@ -338,5 +293,52 @@ class CheckMateClient implements UptimeClientInterface
     private function getLogger()
     {
         return Injector::inst()->get(LoggerInterface::class);
+    }
+
+    /**
+     * Delete a monitor
+     *
+     * @param string $monitorID Monitor ID to delete
+     * @return bool True on success
+     * @throws GuzzleException
+     */
+    public function deleteMonitor($monitorID)
+    {
+        $response = $this->doRequest('DELETE', 'monitors/' . $monitorID);
+        $success = isset($response['success']) && $response['success'];
+
+        if ($success) {
+            $this->getLogger()->info('Monitor deleted successfully', ['id' => $monitorID]);
+        } else {
+            $this->getLogger()->error('Monitor deletion failed', ['id' => $monitorID]);
+        }
+
+        return $success;
+    }
+
+    /**
+     * Update a monitor
+     *
+     * @param string $monitorID Monitor ID to update
+     * @param array $data Data to update
+     * @return mixed API response
+     * @throws GuzzleException
+     */
+    public function updateMonitor($monitorID, $data = [])
+    {
+        $this->getLogger()->info('Updating monitor', ['id' => $monitorID]);
+        return $this->doRequest('PATCH', 'monitors/' . $monitorID, $data);
+    }
+
+    /**
+     * Get a specific monitor
+     *
+     * @param string $monitorID Monitor ID to retrieve
+     * @return mixed API response
+     * @throws GuzzleException
+     */
+    public function getMonitor($monitorID)
+    {
+        return $this->doRequest('GET', 'monitors/' . $monitorID);
     }
 }

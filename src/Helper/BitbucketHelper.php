@@ -67,7 +67,7 @@ class BitbucketHelper
 
             // Check if the request was successful (HTTP status code 201)
             if ($response->getStatusCode() == 201) {
-                $this->setMessage(_t(__CLASS__ . 'CommitSuccess', 'Files committed successfully - ').$repoPath);
+                $this->setMessage(_t(__CLASS__ . 'CommitSuccess', 'Files committed successfully - ') . $repoPath);
                 $this->setStatus(self::BB_STATUS_OK);
             } else {
                 $this->setMessage(_t(__CLASS__ . 'CommitError', 'Error committing files: {message}', [
@@ -85,6 +85,85 @@ class BitbucketHelper
         return $this;
     }
 
+    /**
+     * @return string
+     */
+    private function getDefaultCommitMessage()
+    {
+        return _t(__CLASS__ . '.DefaultCommit', '({user}) Config update - {timestamp}', [
+            'user' => Security::getCurrentUser()->getName(),
+            'timestamp' => DBDatetime::now()->Format(DBDatetime::ISO_DATETIME)
+        ]);
+    }
+
+    /**
+     * @return mixed
+     */
+    private function getBranchName()
+    {
+        return Environment::getEnv('BITBUCKET_BRANCH_NAME');
+    }
+
+    /**
+     * @return string
+     */
+    private function getCommitURL()
+    {
+        $base = $this->config()->get('bitbucket_base_uri');
+        $slug = $this->config()->get('bitbucket_source_slug');
+
+        return Controller::join_links([
+            $base,
+            Environment::getEnv('BITBUCKET_REPO_OWNER'),
+            Environment::getEnv('BITBUCKET_REPO_SLUG'),
+            $slug
+        ]);
+    }
+
+    /**
+     * @return array
+     */
+    private function getCommitRequestHeaders()
+    {
+        return [
+            'Authorization' => sprintf('Bearer %s', $this->getAccessToken()),
+            'Content-Type' => 'application/x-www-form-urlencoded'
+        ];
+    }
+
+    /**
+     * @return mixed
+     */
+    private function getAccessToken()
+    {
+        return Environment::getEnv('BITBUCKET_ACCESS_TOKEN');
+    }
+
+    /**
+     * @param $message
+     * @return void
+     */
+    private function setMessage($message)
+    {
+        $this->responseMessage = $message;
+    }
+
+    /**
+     * @param $status
+     * @return void
+     */
+    private function setStatus($status)
+    {
+        $this->status = $status;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getMessage()
+    {
+        return $this->responseMessage;
+    }
 
     public function createPR()
     {
@@ -139,68 +218,9 @@ class BitbucketHelper
         return $this;
     }
 
-
-    /**
-     * @return mixed
-     */
-    public function getMessage()
-    {
-        return $this->responseMessage;
-    }
-
-    /**
-     * @return mixed
-     */
-    public function getStatus()
-    {
-        return $this->status;
-    }
-
-    /**
-     * @param $message
-     * @return void
-     */
-    private function setMessage($message)
-    {
-        $this->responseMessage = $message;
-    }
-
-    /**
-     * @param $status
-     * @return void
-     */
-    private function setStatus($status)
-    {
-        $this->status = $status;
-    }
-
-    /**
-     * @return mixed
-     */
-    private function getBranchName()
-    {
-        return Environment::getEnv('BITBUCKET_BRANCH_NAME');
-    }
-
     private function getProductionBranchName()
     {
         return Environment::getEnv('BITBUCKET_PRODUCTION_BRANCH_NAME');
-    }
-
-    /**
-     * @return string
-     */
-    private function getCommitURL()
-    {
-        $base = $this->config()->get('bitbucket_base_uri');
-        $slug = $this->config()->get('bitbucket_source_slug');
-
-        return Controller::join_links([
-            $base,
-            Environment::getEnv('BITBUCKET_REPO_OWNER'),
-            Environment::getEnv('BITBUCKET_REPO_SLUG'),
-            $slug
-        ]);
     }
 
     private function getPRURL()
@@ -216,25 +236,6 @@ class BitbucketHelper
         ]);
     }
 
-    /**
-     * @return mixed
-     */
-    private function getAccessToken()
-    {
-        return Environment::getEnv('BITBUCKET_ACCESS_TOKEN');
-    }
-
-    /**
-     * @return array
-     */
-    private function getCommitRequestHeaders()
-    {
-        return [
-            'Authorization' => sprintf('Bearer %s', $this->getAccessToken()),
-            'Content-Type' => 'application/x-www-form-urlencoded'
-        ];
-    }
-
     private function getPRRequestHeaders()
     {
         return [
@@ -244,13 +245,10 @@ class BitbucketHelper
     }
 
     /**
-     * @return string
+     * @return mixed
      */
-    private function getDefaultCommitMessage()
+    public function getStatus()
     {
-        return _t(__CLASS__ . '.DefaultCommit', '({user}) Config update - {timestamp}', [
-            'user' => Security::getCurrentUser()->getName(),
-            'timestamp' => DBDatetime::now()->Format(DBDatetime::ISO_DATETIME)
-        ]);
+        return $this->status;
     }
 }

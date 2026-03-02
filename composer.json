@@ -13,7 +13,8 @@
   "require": {
     "unclecheese/display-logic": "^4",
     "symbiote/silverstripe-gridfieldextensions": "^5",
-    "ramsey/uuid": "^4"
+    "ramsey/uuid": "^4",
+    "colymba/gridfield-bulk-editing-tools": "^5"
   },
   "autoload": {
     "psr-4": {

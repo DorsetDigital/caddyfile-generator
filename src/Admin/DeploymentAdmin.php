@@ -3,17 +3,18 @@
 namespace DorsetDigital\Caddy\Admin;
 
 use DorsetDigital\Caddy\Helper\DeploymentHelper;
+use Exception;
+use Psr\Log\LoggerInterface;
 use SilverStripe\Admin\LeftAndMain;
 use SilverStripe\Control\HTTPRequest;
 use SilverStripe\Control\HTTPResponse;
+use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\Form;
 use SilverStripe\Forms\HeaderField;
 use SilverStripe\Forms\LiteralField;
 use SilverStripe\View\HTML;
 use SilverStripe\View\Requirements;
-use SilverStripe\Core\Injector\Injector;
-use Psr\Log\LoggerInterface;
 
 /**
  * Class \DorsetDigital\Caddy\Admin\DeploymentAdmin
@@ -49,14 +50,14 @@ class DeploymentAdmin extends LeftAndMain
         $btn2 = HTML::createTag('button', [
             'class' => 'btn btn-outline-secondary process-deploy',
             'id' => 'run-dr-process-btn',
-            'data-url' => $runUrl.'?dryrun=1',
+            'data-url' => $runUrl . '?dryrun=1',
             'type' => 'button',
         ], 'Build and push configuration (Dry Run)');
 
         $actions = FieldList::create(
             LiteralField::create(
                 'run-button',
-                $btn1.$btn2
+                $btn1 . $btn2
             )
         );
 
@@ -96,8 +97,7 @@ class DeploymentAdmin extends LeftAndMain
 
             if ($request->requestVar('dryrun') == 1) {
                 $dep->processDryRun();
-            }
-            else {
+            } else {
                 $dep->processConfig();
             }
 
@@ -110,7 +110,7 @@ class DeploymentAdmin extends LeftAndMain
                     'status' => 'success'
                 ]));
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Injector::inst()->get(LoggerInterface::class)->error($e->getMessage());
             return $this->jsonError(500, $e->getMessage());
         }

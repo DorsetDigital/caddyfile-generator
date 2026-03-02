@@ -13,58 +13,58 @@ use SilverStripe\Versioned\RecursivePublishable;
 use SilverStripe\Versioned\VersionedStateExtension;
 
 /**
- * Class \DorsetDigital\Caddy\Model\PHPBackend
+ * Class \DorsetDigital\Caddy\Model\DatabaseServer
  *
  * @property ?string $Title
  * @property ?string $URI
- * @method \SilverStripe\ORM\DataList|\DorsetDigital\Caddy\Model\VirtualHost[] VirtualHosts()
+ * @property ?string $DBUser
+ * @property ?string $DBPassword
+ * @method \SilverStripe\ORM\DataList|\DorsetDigital\Caddy\Model\DBCredentials[] DBCredentials()
  * @mixin \SilverStripe\Assets\Shortcodes\FileLinkTracking
  * @mixin \SilverStripe\Assets\AssetControlExtension
  * @mixin \SilverStripe\CMS\Model\SiteTreeLinkTracking
  * @mixin \SilverStripe\Versioned\RecursivePublishable
  * @mixin \SilverStripe\Versioned\VersionedStateExtension
  */
-class PHPBackend extends DataObject
+class DatabaseServer extends DataObject
 {
-    private static $table_name = 'PHPBackend';
+    private static $table_name = 'DatabaseServer';
     private static $db = [
-        'Title' => 'Varchar',
-        'URI' => 'Varchar',
+        'Title' => 'Varchar(255)',
+        'URI' => 'Varchar(255)',
+        'DBUser' => 'Varchar(255)',
+        'DBPassword' => 'Varchar(255)',
     ];
     private static $has_many = [
-        'VirtualHosts' => VirtualHost::class,
+        'DBCredentials' => DBCredentials::class
     ];
-    private static $singular_name = 'PHP Backend';
-    private static $plural_name = 'PHP Backends';
-    private static $default_sort = 'Title ASC';
 
     public function getCMSFields()
     {
         $fields = parent::getCMSFields();
-        $fields->removeByName([
-            'VirtualHosts',
-        ]);
+        $fields->removeByName(['DBCredentials']);
 
-        $virtualHosts = $this->VirtualHosts();
-        if ($virtualHosts->exists()) {
+        $dbCreds = $this->DBCredentials();
+        if ($dbCreds->exists()) {
             $list = '<p>';
+
             /**
-             * @var VirtualHost $vh
+             * @var DBCredentials $dbCred
              */
-            foreach ($virtualHosts as $vh) {
-                $link = $vh->getCMSEditLink();
+            foreach ($dbCreds as $dbCred) {
+                $link = $dbCred->getCMSEditLink();
                 $list .= sprintf(
                     '<br><a href="%s">%s</a>',
                     $link,
-                    htmlspecialchars($vh->Title)
+                    htmlspecialchars($dbCred->Title)
                 );
             }
             $list .= '</p>';
 
             $fields->addFieldsToTab(
                 'Root.Main', [
-                    HeaderField::create('Hosts using this backend:'),
-                    LiteralField::create('LinkedVirtualHosts', $list)
+                    HeaderField::create('Databases using this server'),
+                    LiteralField::create('LinkedDBs', $list)
                 ]
             );
         }

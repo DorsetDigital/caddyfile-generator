@@ -1,5 +1,5 @@
-(function($) {
-    $(document).on('click', '.process-deploy', function(e) {
+(function ($) {
+    $(document).on('click', '.process-deploy', function (e) {
         e.preventDefault();
 
         var button = $(this);
@@ -16,18 +16,18 @@
             headers: {
                 'X-SecurityID': $('input[name="SecurityID"]').val()
             },
-            success: function(response) {
+            success: function (response) {
                 if (response.html) {
                     $('#process-results').html(response.html);
                 }
             },
-            error: function(xhr, status, error) {
+            error: function (xhr, status, error) {
                 console.log('XHR Response:', xhr.responseText);
                 $('#process-results').html(
                     '<div class="alert alert-danger">Error: ' + error + '<br>Check console for details</div>'
                 );
             },
-            complete: function() {
+            complete: function () {
                 button.prop('disabled', false).text(originalText);
             }
         });

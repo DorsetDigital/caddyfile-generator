@@ -3,9 +3,12 @@
 namespace DorsetDigital\Caddy\Helper;
 
 use DorsetDigital\Caddy\Model\VirtualHost;
-use SilverStripe\SiteConfig\SiteConfig;
+use Exception;
+use Psr\Container\NotFoundExceptionInterface;
 use Psr\Log\LoggerInterface;
 use SilverStripe\Core\Injector\Injector;
+use SilverStripe\ORM\ValidationException;
+use SilverStripe\SiteConfig\SiteConfig;
 
 class CaddyHelper
 {
@@ -98,15 +101,15 @@ class CaddyHelper
     /**
      * @param VirtualHost $site
      * @return void
-     * @throws \Psr\Container\NotFoundExceptionInterface
-     * @throws \SilverStripe\ORM\ValidationException
+     * @throws NotFoundExceptionInterface
+     * @throws ValidationException
      * @todo Deal with deploying the files to the hosting platform
      */
     public static function deployTLSFiles(VirtualHost $site)
     {
         $config = SiteConfig::current_site_config();
         if (!$config->TLSFilesRoot || !$config->TLSFilesCaddyRoot) {
-            throw new \Exception('TLS file root paths are not configured in the settings.');
+            throw new Exception('TLS file root paths are not configured in the settings.');
         }
 
         if ($site->TLSMethod === VirtualHost::TLS_MANUAL) {
@@ -118,9 +121,59 @@ class CaddyHelper
         }
     }
 
-    private static function deployStoredTLSFiles(VirtualHost $site) {
+    private static function deployManualTLSFiles(VirtualHost $site)
+    {
+        if (($site->TLSCertID < 1) || ($site->TLSKeyID < 1)) {
+            throw new Exception('Trying to provision TLS without the correct files');
+        }
+        $config = SiteConfig::current_site_config();
+        $updateSiteRecord = false;
+
+        $siteKeyData = $site->TLSKey()->getString();
+        $siteCertificateData = $site->TLSCert()->getString();
+
+        $deployedKeyName = sprintf(
+            'site-%s-%s.key',
+            $site->ID,
+            md5($siteKeyData)
+        );
+
+        $deployedCertificateName = sprintf(
+            'site-%s-%s.pem',
+            $site->ID,
+            md5($siteCertificateData)
+        );
+
+        $deployedKeyPath = rtrim($config->TLSFilesCaddyRoot, '/') . '/' . $deployedKeyName;
+        $localKeyPath = rtrim($config->TLSFilesRoot, '/') . '/' . $deployedKeyName;
+
+        if (($deployedKeyPath !== $site->DeployedKeyFile) || (!is_file($localKeyPath))) {
+            Injector::inst()->get(LoggerInterface::class)->info('Private keys do not match or missing, writing new');
+            Injector::inst()->get(LoggerInterface::class)->info('Local key path: ' . $localKeyPath);
+            file_put_contents($localKeyPath, $siteKeyData);
+            $updateSiteRecord = true;
+            $site->DeployedKeyFile = $deployedKeyPath;
+        }
+
+        $deployedCertificatePath = rtrim($config->TLSFilesCaddyRoot, '/') . '/' . $deployedCertificateName;
+        $localCertificatePath = rtrim($config->TLSFilesRoot, '/') . '/' . $deployedCertificateName;
+        if (($deployedCertificatePath !== $site->DeployedCertificateFile) || (!is_file($localCertificatePath))) {
+            Injector::inst()->get(LoggerInterface::class)->info('Certificate file does not match or missing, writing new');
+            Injector::inst()->get(LoggerInterface::class)->info('Local certificate path: ' . $localCertificatePath);
+            file_put_contents($localCertificatePath, $siteCertificateData);
+            $updateSiteRecord = true;
+            $site->DeployedCertificateFile = $deployedCertificatePath;
+        }
+
+        if ($updateSiteRecord) {
+            $site->write();
+        }
+    }
+
+    private static function deployStoredTLSFiles(VirtualHost $site)
+    {
         if ($site->SSLCertificateID < 1) {
-            throw new \Exception('SSL Certificate is not set for '.$site->Title);
+            throw new Exception('SSL Certificate is not set for ' . $site->Title);
         }
 
         $sslRecord = $site->SSLCertificate();
@@ -168,53 +221,5 @@ class CaddyHelper
             $sslRecord->write();
         }
 
-    }
-
-    private static function deployManualTLSFiles(VirtualHost $site) {
-        if (($site->TLSCertID < 1) || ($site->TLSKeyID < 1)) {
-            throw new \Exception('Trying to provision TLS without the correct files');
-        }
-        $config = SiteConfig::current_site_config();
-        $updateSiteRecord = false;
-
-        $siteKeyData = $site->TLSKey()->getString();
-        $siteCertificateData = $site->TLSCert()->getString();
-
-        $deployedKeyName = sprintf(
-            'site-%s-%s.key',
-            $site->ID,
-            md5($siteKeyData)
-        );
-
-        $deployedCertificateName = sprintf(
-            'site-%s-%s.pem',
-            $site->ID,
-            md5($siteCertificateData)
-        );
-
-        $deployedKeyPath = rtrim($config->TLSFilesCaddyRoot, '/') . '/' . $deployedKeyName;
-        $localKeyPath = rtrim($config->TLSFilesRoot, '/') . '/' . $deployedKeyName;
-
-        if (($deployedKeyPath !== $site->DeployedKeyFile) || (!is_file($localKeyPath))) {
-            Injector::inst()->get(LoggerInterface::class)->info('Private keys do not match or missing, writing new');
-            Injector::inst()->get(LoggerInterface::class)->info('Local key path: ' . $localKeyPath);
-            file_put_contents($localKeyPath, $siteKeyData);
-            $updateSiteRecord = true;
-            $site->DeployedKeyFile = $deployedKeyPath;
-        }
-
-        $deployedCertificatePath = rtrim($config->TLSFilesCaddyRoot, '/') . '/' . $deployedCertificateName;
-        $localCertificatePath = rtrim($config->TLSFilesRoot, '/') . '/' . $deployedCertificateName;
-        if (($deployedCertificatePath !== $site->DeployedCertificateFile) || (!is_file($localCertificatePath))) {
-            Injector::inst()->get(LoggerInterface::class)->info('Certificate file does not match or missing, writing new');
-            Injector::inst()->get(LoggerInterface::class)->info('Local certificate path: ' . $localCertificatePath);
-            file_put_contents($localCertificatePath, $siteCertificateData);
-            $updateSiteRecord = true;
-            $site->DeployedCertificateFile = $deployedCertificatePath;
-        }
-
-        if ($updateSiteRecord) {
-            $site->write();
-        }
     }
 }

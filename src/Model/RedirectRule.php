@@ -2,11 +2,16 @@
 
 namespace DorsetDigital\Caddy\Model;
 
+use SilverStripe\Assets\AssetControlExtension;
+use SilverStripe\Assets\Shortcodes\FileLinkTracking;
+use SilverStripe\CMS\Model\SiteTreeLinkTracking;
 use SilverStripe\Core\Validation\ValidationResult;
 use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\LiteralField;
 use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\DataObject;
+use SilverStripe\Versioned\RecursivePublishable;
+use SilverStripe\Versioned\VersionedStateExtension;
 use SilverStripe\View\HTML;
 
 /**

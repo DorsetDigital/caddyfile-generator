@@ -2,6 +2,7 @@
 
 namespace DorsetDigital\Caddy\Extension;
 
+use DorsetDigital\Caddy\Model\DatabaseServer;
 use DorsetDigital\Caddy\Model\PHPBackend;
 use SilverStripe\AssetAdmin\Forms\UploadField;
 use SilverStripe\Assets\File;
@@ -15,6 +16,7 @@ use SilverStripe\Forms\LiteralField;
 use SilverStripe\Forms\NumericField;
 use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\DataExtension;
+use SilverStripe\SiteConfig\SiteConfig;
 
 /**
  * Class \DorsetDigital\Caddy\Extension\SiteConfigExtension
@@ -121,7 +123,11 @@ class SiteConfigExtension extends Extension
         ]);
 
         $fields->addFieldsToTab('Root.PHPBackends', [
-           GridField::create('PHPBackends', 'PHP Backends', PHPBackend::get(), GridFieldConfig_RecordEditor::create())
+            GridField::create('PHPBackends', 'PHP Backends', PHPBackend::get(), GridFieldConfig_RecordEditor::create())
+        ]);
+
+        $fields->addFieldsToTab('Root.DatabaseServers', [
+            GridField::create('DBServers', 'Database Servers', DatabaseServer::get(), GridFieldConfig_RecordEditor::create())
         ]);
     }
 

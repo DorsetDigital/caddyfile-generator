@@ -3,14 +3,16 @@
 namespace DorsetDigital\Caddy\Helper;
 
 use DorsetDigital\Caddy\Model\VirtualHost;
+use Exception;
 use SilverStripe\Core\Injector\Injectable;
 use SilverStripe\SiteConfig\SiteConfig;
-use SilverStripe\Core\Injector\Injector;
-use Psr\Log\LoggerInterface;
 
 class FilesystemHelper
 {
     use Injectable;
+
+    const ZDT_SYMLINK_NAME = 'current';
+    const ZDT_BASEDIR_NAME = 'basedeploy';
 
     private $siteConfig;
 
@@ -23,9 +25,10 @@ class FilesystemHelper
     /**
      * Create any document roots which do not exist and are required
      * @return string
-     * @throws \Exception
+     * @throws Exception
      */
-    public function createNewDocumentRoots() {
+    public function createNewDocumentRoots()
+    {
         $requiredDirs = $this->getNewHostDirectories();
         if (count($requiredDirs) < 1) {
             return "No new directories to create";
@@ -45,9 +48,10 @@ class FilesystemHelper
     /**
      * Get a list of relative paths for any new document roots which are required
      * @return array
-     * @throws \Exception
+     * @throws Exception
      */
-    public function getNewHostDirectories() {
+    public function getNewHostDirectories()
+    {
         $dirs = [];
         $hosts = VirtualHost::getStandardSites();
         foreach ($hosts as $host) {
@@ -61,30 +65,16 @@ class FilesystemHelper
         return $dirs;
     }
 
-    public function createDirectory(string $dir)
-    {
-        if (is_dir($dir)) {
-            return true;
-        }
-        try {
-            mkdir($dir);
-            return true;
-        }
-        catch (\Exception $e) {
-            throw new \Exception("Failed to create directory ".$dir." - ".$e->getMessage());
-        }
-    }
-
     /**
      * @param VirtualHost $host
      * @return bool
-     * @throws \Exception
+     * @throws Exception
      */
     public function checkDirectoryForHost(VirtualHost $host)
     {
         $path = $host->DocumentRoot;
         if (!$path) {
-            throw new \Exception('Document root directory is empty in virtualhost');
+            throw new Exception('Document root directory is empty in virtualhost');
         }
         return is_dir($this->getFullHostPath($path));
     }
@@ -103,7 +93,50 @@ class FilesystemHelper
         );
     }
 
+    public function createDirectory(string $dir)
+    {
+        if (is_dir($dir)) {
+            return true;
+        }
+        try {
+            mkdir($dir, 0755, true);
+            return true;
+        } catch (Exception $e) {
+            throw new Exception("Failed to create directory " . $dir . " - " . $e->getMessage());
+        }
+    }
 
+    /**
+     * Check to see if the file system structure is in place for zero-downtime deployments if needed
+     * and create it if not
+     * @param VirtualHost $site
+     * @return bool
+     */
+    public function checkDeploymentStructure(VirtualHost $site)
+    {
+        if (!$site->EnableZeroDowntime) {
+            return true;
+        }
+
+        //See if the "current" directory exists for the site
+        //If not, we need to create a system directory and symlink it so deployer can do its thing
+        $checkLinkPath = rtrim($this->getFullHostPath($site->DocumentRoot), '/') . '/' . self::ZDT_SYMLINK_NAME;
+        if ((is_dir($checkLinkPath)) || (is_link($checkLinkPath))) {
+            return true;
+        }
+
+        $linkTarget = rtrim($this->getFullHostPath($site->DocumentRoot), '/') . '/' . self::ZDT_BASEDIR_NAME;
+        try {
+            mkdir($linkTarget, 0755, true);
+            symlink($linkTarget, $checkLinkPath);
+            return true;
+        }
+        catch (Exception $e) {
+            return false;
+        }
+
+
+    }
 
     function sanitiseDirectoryName(string $input, bool $lowercase = true): string
     {

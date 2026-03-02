@@ -7,20 +7,34 @@ use DorsetDigital\Caddy\Helper\FilesystemHelper;
 use Ramsey\Uuid\Uuid;
 use SilverStripe\Admin\CMSEditLinkExtension;
 use SilverStripe\AssetAdmin\Forms\UploadField;
+use SilverStripe\Assets\AssetControlExtension;
 use SilverStripe\Assets\File;
+use SilverStripe\Assets\Shortcodes\FileLinkTracking;
+use SilverStripe\CMS\Model\SiteTreeLinkTracking;
 use SilverStripe\Core\Validation\ValidationResult;
 use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\DropdownField;
 use SilverStripe\Forms\GridField\GridField;
+use SilverStripe\Forms\GridField\GridFieldButtonRow;
+use SilverStripe\Forms\GridField\GridFieldConfig;
 use SilverStripe\Forms\GridField\GridFieldConfig_RecordEditor;
+use SilverStripe\Forms\GridField\GridFieldDeleteAction;
+use SilverStripe\Forms\GridField\GridFieldToolbarHeader;
+use SilverStripe\Forms\HeaderField;
 use SilverStripe\Forms\LiteralField;
 use SilverStripe\Forms\TextareaField;
 use SilverStripe\Forms\TextField;
+use SilverStripe\ORM\DataList;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\SiteConfig\SiteConfig;
+use SilverStripe\Versioned\RecursivePublishable;
 use SilverStripe\Versioned\Versioned;
+use SilverStripe\Versioned\VersionedStateExtension;
 use SilverStripe\VersionedAdmin\Forms\HistoryViewerField;
 use SilverStripe\View\HTML;
+use Symbiote\GridFieldExtensions\GridFieldAddNewInlineButton;
+use Symbiote\GridFieldExtensions\GridFieldEditableColumns;
+use Symbiote\GridFieldExtensions\GridFieldTitleHeader;
 use UncleCheese\DisplayLogic\Forms\Wrapper;
 
 /**
@@ -51,19 +65,23 @@ use UncleCheese\DisplayLogic\Forms\Wrapper;
  * @property bool $UptimeMonitorEnabled
  * @property bool $EnableZeroDowntime
  * @property ?string $DocumentRootSuffix
+ * @property bool $AddSilverstripeDBENV
  * @property int $TLSKeyID
  * @property int $TLSCertID
  * @property int $SSLCertificateID
  * @property int $AuthCredentialsID
  * @property int $UptimeMonitorID
  * @property int $PHPBackendID
+ * @property int $DBCredentialsID
  * @method \SilverStripe\Assets\File TLSKey()
  * @method \SilverStripe\Assets\File TLSCert()
  * @method \DorsetDigital\Caddy\Model\SSLCertificate SSLCertificate()
  * @method \DorsetDigital\Caddy\Model\BasicAuthCreds AuthCredentials()
  * @method \DorsetDigital\Caddy\Model\UptimeMonitor UptimeMonitor()
  * @method \DorsetDigital\Caddy\Model\PHPBackend PHPBackend()
+ * @method \DorsetDigital\Caddy\Model\DBCredentials DBCredentials()
  * @method \SilverStripe\ORM\DataList|\DorsetDigital\Caddy\Model\RedirectRule[] RedirectRules()
+ * @method \SilverStripe\ORM\DataList|\DorsetDigital\Caddy\Model\ENVVar[] ENVVars()
  * @mixin \SilverStripe\Versioned\Versioned
  * @mixin \SilverStripe\Admin\CMSEditLinkExtension
  * @mixin \SilverStripe\Assets\Shortcodes\FileLinkTracking
@@ -122,6 +140,7 @@ class VirtualHost extends DataObject
         'UptimeMonitorEnabled' => 'Boolean',
         'EnableZeroDowntime' => 'Boolean',
         'DocumentRootSuffix' => 'Varchar',
+        'AddSilverstripeDBENV' => 'Boolean'
     ];
 
     private static $has_one = [
@@ -131,10 +150,12 @@ class VirtualHost extends DataObject
         'AuthCredentials' => BasicAuthCreds::class,
         'UptimeMonitor' => UptimeMonitor::class,
         'PHPBackend' => PHPBackend::class,
+        'DBCredentials' => DBCredentials::class,
     ];
 
     private static $has_many = [
         'RedirectRules' => RedirectRule::class,
+        'ENVVars' => ENVVar::class,
     ];
 
     private static $owns = [
@@ -183,7 +204,7 @@ class VirtualHost extends DataObject
         foreach (array_keys(self::$db) as $dataField) {
             $fields->removeByName($dataField);
         }
-        $fields->removeByName(['TLSKey', 'TLSCert', 'SSLCertificateID', 'AuthCredentialsID', 'RedirectRules', 'UptimeMonitorID', 'PHPBackendID']);
+        $fields->removeByName(['TLSKey', 'TLSCert', 'SSLCertificateID', 'AuthCredentialsID', 'RedirectRules', 'UptimeMonitorID', 'PHPBackendID', 'DBCredentialsID', 'ENVVars']);
 
         $absoluteRoot = '';
         if ($this->DocumentRoot) {
@@ -233,7 +254,7 @@ class VirtualHost extends DataObject
                 ->setReadonly(true)
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_HOST)->end(),
             CheckboxField::create('EnableZeroDowntime', 'Configure for zero downtime deployment')
-                ->setDescription('Ensures Caddy is pointing to the correct "current" release directory')
+                ->setDescription('Ensures Caddy is pointing to the correct "current" release directory.  Note:  Changing this once a site has been deployed is almost guaranteed to cause problems!')
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_HOST)->end(),
             TextField::create('DocumentRootSuffix', 'Document Root Suffix')
                 ->setDescription('Adds a suffix to the document root for Caddy, so that files can be served from a directory within the document root (eg. public)')
@@ -275,6 +296,45 @@ class VirtualHost extends DataObject
         if (SiteConfig::current_site_config()->EnableWAF) {
             $fields->insertAfter('HostName', CheckboxField::create('EnableWAF', 'Enable WAF')
                 ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end());
+        }
+
+        if ($this->HostType == self::HOST_TYPE_HOST) {
+            $fields->addFieldsToTab('Root.DatabaseAndEnvironment', [
+                DropdownField::create('DBCredentialsID', 'DB Credentials', DBCredentials::getUnassignedCredentials($this->ID))
+                    ->setEmptyString('Please select:')
+                    ->setDescription('Note: this only shows credentials which are active and are not already assigned')
+            ]);
+            if ($this->DBCredentialsID > 0) {
+                $fields->addFieldsToTab('Root.DatabaseAndEnvironment', [
+                    TextField::create('ShowDBServerURI', 'DB Server')
+                        ->setValue($this->DBCredentials()->DBServer()->URI)->setReadonly(true),
+                    TextField::create('ShowDBName', 'Database name')
+                        ->setValue($this->DBCredentials()->DBName)->setReadonly(true),
+                    TextField::create('ShowDBUserName', 'Database username')
+                        ->setValue($this->DBCredentials()->DBUserName)->setReadonly(true),
+                    TextField::create('ShowDBPassword', 'Database password')
+                        ->setValue($this->DBCredentials()->DBPassword)->setReadonly(true),
+                ]);
+            }
+            $fields->addFieldsToTab('Root.DatabaseAndEnvironment', [
+                HeaderField::create('Environment', 'Environment')
+            ]);
+            if ($this->DBCredentialsID > 0) {
+                $fields->addFieldsToTab('Root.DatabaseAndEnvironment', [
+                    CheckboxField::create('AddSilverstripeDBENV', 'Add Silverstripe DB ENV Vars to Server')
+                ]);
+            }
+            $fields->addFieldsToTab('Root.DatabaseAndEnvironment', [
+                GridField::create('ENVVars', 'ENV Vars', $this->ENVVars(),
+                    GridFieldConfig::create()
+                        ->addComponent(GridFieldButtonRow::create('before'))
+                        ->addComponent(GridFieldToolbarHeader::create())
+                        ->addComponent(GridFieldTitleHeader::create())
+                        ->addComponent(GridFieldEditableColumns::create())
+                        ->addComponent(GridFieldDeleteAction::create())
+                        ->addComponent(GridFieldAddNewInlineButton::create())
+                )
+            ]);
         }
 
         $fields->addFieldsToTab('Root.Main', [
@@ -656,6 +716,9 @@ class VirtualHost extends DataObject
         return ($usScheme == 'https');
     }
 
+    /**
+     * @return string
+     */
     public function getCaddyRoot()
     {
         $config = SiteConfig::current_site_config();
@@ -669,15 +732,28 @@ class VirtualHost extends DataObject
 
     private function getComputedDocumentRoot()
     {
-        $releaseDir = ($this->EnableZeroDowntime) ? '/current' : null;
         $rootSuffix = ($this->DocumentRootSuffix) ? '/' . $this->DocumentRootSuffix : null;
-        return sprintf('%s%s%s',
-            $this->DocumentRoot,
-            $releaseDir,
+        return sprintf('%s%s',
+            $this->getBaseDirectory(),
             $rootSuffix
         );
     }
 
+    /**
+     * @return string
+     */
+    public function getBaseDirectory()
+    {
+        $releaseDir = ($this->EnableZeroDowntime) ? '/'.FilesystemHelper::ZDT_SYMLINK_NAME : null;
+        return sprintf('%s%s',
+            $this->DocumentRoot,
+            $releaseDir
+        );
+    }
+
+    /**
+     * @return string
+     */
     public function getCurrentPHPRoot()
     {
         $config = SiteConfig::current_site_config();
@@ -702,6 +778,11 @@ class VirtualHost extends DataObject
     public function getPHPCGIURI()
     {
         return $this->PHPBackend()->URI;
+    }
+
+    public function hasEnvironmentVars()
+    {
+        return ((($this->DBCredentialsID > 0) && ($this->AddSilverstripeDBENV)) || ($this->ENVVars()->count() > 0));
     }
 
 }

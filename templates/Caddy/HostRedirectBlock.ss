@@ -1,6 +1,6 @@
 $Source<% if not $EnableHTTPS %>:80<% end_if %> {
 <% if $NeedsTLSConfig%>
-<% include Caddy\TLS %>
+    <% include Caddy\TLS %>
 <% end_if %>
-    redir $Target{uri}
+redir $Target{uri}
 }

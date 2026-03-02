@@ -10,9 +10,9 @@ use Symfony\Component\Console\Input\InputInterface;
 
 class EnableUptimeMonitorsTask extends BuildTask
 {
-    protected string $title = 'Enable Uptime Monitors on all sites';
     protected static string $description = 'Enables uptime monitors on all sites, they will be activated during the next deployment run';
     protected static string $commandName = 'enable-uptime-monitors';
+    protected string $title = 'Enable Uptime Monitors on all sites';
 
     public function execute(InputInterface $input, PolyOutput $output): int
     {

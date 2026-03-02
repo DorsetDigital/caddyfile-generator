@@ -10,10 +10,11 @@ use SilverStripe\Versioned\RecursivePublishable;
 use SilverStripe\Versioned\VersionedStateExtension;
 
 /**
- * Class \DorsetDigital\Caddy\Model\UptimeMonitor
+ * Class \DorsetDigital\Caddy\Model\ENVVar
  *
- * @property ?string $MonitorID
- * @property bool $Active
+ * @property ?string $VarName
+ * @property ?string $VarValue
+ * @property int $VirtualHostID
  * @method \DorsetDigital\Caddy\Model\VirtualHost VirtualHost()
  * @mixin \SilverStripe\Assets\Shortcodes\FileLinkTracking
  * @mixin \SilverStripe\Assets\AssetControlExtension
@@ -21,14 +22,20 @@ use SilverStripe\Versioned\VersionedStateExtension;
  * @mixin \SilverStripe\Versioned\RecursivePublishable
  * @mixin \SilverStripe\Versioned\VersionedStateExtension
  */
-class UptimeMonitor extends DataObject
+class ENVVar extends DataObject
 {
-    private static $table_name = 'UptimeMonitor';
+    private static $table_name = 'ENVVar';
     private static $db = [
-        'MonitorID' => 'Varchar',
-        'Active' => 'Boolean',
+        'VarName' => 'Varchar',
+        'VarValue' => 'Varchar'
     ];
-    private static $belongs_to = [
-        'VirtualHost' => VirtualHost::class,
+    private static $has_one = [
+        'VirtualHost' => VirtualHost::class
     ];
+    private static $summary_fields = [
+        'VarName' => 'Variable',
+        'VarValue' => 'Value'
+    ];
+    private static $singular_name = 'ENV Variable';
+    private static $plural_name = 'ENV Variables';
 }

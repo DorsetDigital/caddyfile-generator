@@ -2,9 +2,10 @@
 
 namespace DorsetDigital\Caddy\Helper;
 
-use DorsetDigital\Caddy\Model\UptimeMonitor;
 use DorsetDigital\Caddy\Client\UptimeClientInterface;
+use DorsetDigital\Caddy\Model\UptimeMonitor;
 use SilverStripe\Core\Injector\Injectable;
+use SilverStripe\ORM\DataList;
 
 class UptimeMonitorHelper
 {
@@ -17,26 +18,8 @@ class UptimeMonitorHelper
         $this->client = $client;
     }
 
-    /**
-     * @return \SilverStripe\ORM\DataList
-     */
-    public function getRequiredMonitors() {
-        return UptimeMonitor::get()->filter([
-            'Active' => 1,
-        ])->filterAny([
-            'MonitorID:ExactMatch' => '',
-            'MonitorID' => null
-        ]);
-    }
-
-    public function getRetiredMonitors() {
-        return UptimeMonitor::get()->filter([
-            'Active' => 0,
-            'MonitorID:Not' => null,
-        ]);
-    }
-
-    public function cleanUpMonitors() {
+    public function cleanUpMonitors()
+    {
         $messages = [];
         $monitors = $this->getRetiredMonitors();
         if ($monitors->count() < 1) {
@@ -47,15 +30,28 @@ class UptimeMonitorHelper
             if ($delete) {
                 $monitor->update(['MonitorID' => null])->write();
                 $messages[] = sprintf('Monitor ID %s was deleted.', $monitor->MonitorID);
-            }
-            else {
+            } else {
                 $messages[] = sprintf('Failed to delete Monitor ID %s.', $monitor->MonitorID);
             }
         }
         return implode("\n", $messages);
     }
 
-    public function addNewMonitors() {
+    public function getRetiredMonitors()
+    {
+        return UptimeMonitor::get()->filter([
+            'Active' => 0,
+            'MonitorID:Not' => null,
+        ]);
+    }
+
+    public function deleteMonitor($monitorID)
+    {
+        return $this->client->deleteMonitor($monitorID);
+    }
+
+    public function addNewMonitors()
+    {
         $messages = [];
         $required = $this->getRequiredMonitors();
         if ($required->count() < 1) {
@@ -83,14 +79,22 @@ class UptimeMonitorHelper
         return implode("\n", $messages);
     }
 
+    /**
+     * @return DataList
+     */
+    public function getRequiredMonitors()
+    {
+        return UptimeMonitor::get()->filter([
+            'Active' => 1,
+        ])->filterAny([
+            'MonitorID:ExactMatch' => '',
+            'MonitorID' => null
+        ]);
+    }
+
     public function createMonitor($name, $url)
     {
         return $this->client->createMonitor($name, $url);
-    }
-
-    public function deleteMonitor($monitorID)
-    {
-        return $this->client->deleteMonitor($monitorID);
     }
 
     public function getMonitor($monitorID)
