@@ -7,6 +7,7 @@ use SilverStripe\Admin\CMSEditLinkExtension;
 use SilverStripe\Assets\AssetControlExtension;
 use SilverStripe\Assets\Shortcodes\FileLinkTracking;
 use SilverStripe\CMS\Model\SiteTreeLinkTracking;
+use SilverStripe\Core\Validation\ValidationException;
 use SilverStripe\Core\Validation\ValidationResult;
 use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\DropdownField;
