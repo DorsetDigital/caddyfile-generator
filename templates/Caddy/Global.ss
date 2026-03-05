@@ -17,6 +17,9 @@
 <% if $EnableWAF %>
     order coraza_waf first
 <% end_if %>
+servers {
+    protocols h1 h2
+}
 <% if $RedisHost %>
     storage redis <% if $RedisCluster %>cluster<% end_if %> {
         host           $RedisHost
