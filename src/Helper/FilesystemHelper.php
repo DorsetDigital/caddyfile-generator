@@ -114,7 +114,7 @@ class FilesystemHelper
      */
     public function checkDeploymentStructure(VirtualHost $site)
     {
-        if (!$site->EnableZeroDowntime) {
+        if ((!$site->EnableZeroDowntime) || (!$site->DocumentRoot)) {
             return true;
         }
 
