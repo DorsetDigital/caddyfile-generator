@@ -3,6 +3,7 @@
 namespace DorsetDigital\Caddy\Model;
 
 use DorsetDigital\Caddy\Admin\SitesAdmin;
+use DorsetDigital\Caddy\Helper\ENVHelper;
 use DorsetDigital\Caddy\Helper\FilesystemHelper;
 use Ramsey\Uuid\Uuid;
 use SilverStripe\Admin\CMSEditLinkExtension;
@@ -66,6 +67,8 @@ use UncleCheese\DisplayLogic\Forms\Wrapper;
  * @property bool $EnableZeroDowntime
  * @property ?string $DocumentRootSuffix
  * @property bool $AddSilverstripeDBENV
+ * @property ?string $CustomConfig
+ * @property ?string $ENVSignature
  * @property int $TLSKeyID
  * @property int $TLSCertID
  * @property int $SSLCertificateID
@@ -82,12 +85,12 @@ use UncleCheese\DisplayLogic\Forms\Wrapper;
  * @method \DorsetDigital\Caddy\Model\DBCredentials DBCredentials()
  * @method \SilverStripe\ORM\DataList|\DorsetDigital\Caddy\Model\RedirectRule[] RedirectRules()
  * @method \SilverStripe\ORM\DataList|\DorsetDigital\Caddy\Model\ENVVar[] ENVVars()
- * @mixin \SilverStripe\Versioned\Versioned
  * @mixin \SilverStripe\Admin\CMSEditLinkExtension
- * @mixin \SilverStripe\Assets\Shortcodes\FileLinkTracking
  * @mixin \SilverStripe\Assets\AssetControlExtension
+ * @mixin \SilverStripe\Assets\Shortcodes\FileLinkTracking
  * @mixin \SilverStripe\CMS\Model\SiteTreeLinkTracking
  * @mixin \SilverStripe\Versioned\RecursivePublishable
+ * @mixin \SilverStripe\Versioned\Versioned
  * @mixin \SilverStripe\Versioned\VersionedStateExtension
  */
 class VirtualHost extends DataObject
@@ -140,7 +143,9 @@ class VirtualHost extends DataObject
         'UptimeMonitorEnabled' => 'Boolean',
         'EnableZeroDowntime' => 'Boolean',
         'DocumentRootSuffix' => 'Varchar',
-        'AddSilverstripeDBENV' => 'Boolean'
+        'AddSilverstripeDBENV' => 'Boolean',
+        'CustomConfig' => 'Text',
+        'ENVSignature' => 'Varchar',
     ];
 
     private static $has_one = [
@@ -204,7 +209,10 @@ class VirtualHost extends DataObject
         foreach (array_keys(self::$db) as $dataField) {
             $fields->removeByName($dataField);
         }
-        $fields->removeByName(['TLSKey', 'TLSCert', 'SSLCertificateID', 'AuthCredentialsID', 'RedirectRules', 'UptimeMonitorID', 'PHPBackendID', 'DBCredentialsID', 'ENVVars']);
+        $fields->removeByName([
+            'TLSKey', 'TLSCert', 'SSLCertificateID', 'AuthCredentialsID', 'RedirectRules',
+            'UptimeMonitorID', 'PHPBackendID', 'DBCredentialsID', 'ENVVars', 'ENVSignature',
+        ]);
 
         $absoluteRoot = '';
         if ($this->DocumentRoot) {
@@ -333,7 +341,8 @@ class VirtualHost extends DataObject
                         ->addComponent(GridFieldEditableColumns::create())
                         ->addComponent(GridFieldDeleteAction::create())
                         ->addComponent(GridFieldAddNewInlineButton::create())
-                )
+                ),
+                TextField::create('ENVSignature', 'Environment Signature')->setReadonly(true),
             ]);
         }
 
@@ -362,6 +371,12 @@ class VirtualHost extends DataObject
                     ->displayUnless('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end()
             ]
         );
+
+        $fields->addFieldsToTab('Root.ExtraConfig', [
+            TextareaField::create('CustomConfig', 'Extra config')
+            ->setRows(10)
+            ->setDescription('This config will be added to the host block.  NOTE: this config will be passed verbatim, make sure you check it is valid!')
+        ]);
 
         return $fields;
     }
@@ -452,6 +467,12 @@ class VirtualHost extends DataObject
         if ($this->DocumentRootSuffix) {
             $this->DocumentRootSuffix = trim($this->DocumentRootSuffix, '/ ');
         }
+
+        $envHelper = ENVHelper::create();
+        $sig = $envHelper->setSite($this)->generateENV()->getENVSignature();
+
+        $this->ENVSignature = $sig;
+
     }
 
     public function onBeforeDelete()

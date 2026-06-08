@@ -115,15 +115,15 @@ class DeploymentHelper
         foreach ($allSites as $site) {
             $fsHelper->checkDeploymentStructure($site);
 
-            $envFileName = $envHelper
-                ->setSite($site)
-                ->cleanUp(false)
-                ->generateENV()
-                ->writeToFile(false);
+            $thisENV = $envHelper->setSite($site)->generateENV();
+            if ($thisENV->getENVSignature() !== $site->ENVSignature) {
+                $envFileName = $thisENV->writeToFile();
 
-            if ($envFileName) {
-                $envFileMessages[] = sprintf("Writing env file to %s", $envFileName);
+                if ($envFileName) {
+                    $envFileMessages[] = sprintf("Writing env file to %s", $envFileName);
+                }
             }
+
         }
 
         $this->addMessage("------------------------------------");

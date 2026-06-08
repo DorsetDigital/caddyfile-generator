@@ -17,4 +17,5 @@ root * $CaddyRoot
 <% end_if %>
 encode gzip
 file_server
+<% if $CustomConfig %>$CustomConfig<% end_if %>
 }

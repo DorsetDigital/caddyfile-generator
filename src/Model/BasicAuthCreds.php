@@ -20,9 +20,10 @@ use SilverStripe\Versioned\VersionedStateExtension;
  * @property ?string $Title
  * @property ?string $Username
  * @property ?string $Password
+ * @property ?string $HashedPassword
  * @method \SilverStripe\ORM\DataList|\DorsetDigital\Caddy\Model\VirtualHost[] VirtualHosts()
- * @mixin \SilverStripe\Assets\Shortcodes\FileLinkTracking
  * @mixin \SilverStripe\Assets\AssetControlExtension
+ * @mixin \SilverStripe\Assets\Shortcodes\FileLinkTracking
  * @mixin \SilverStripe\CMS\Model\SiteTreeLinkTracking
  * @mixin \SilverStripe\Versioned\RecursivePublishable
  * @mixin \SilverStripe\Versioned\VersionedStateExtension
@@ -34,6 +35,7 @@ class BasicAuthCreds extends DataObject
         'Title' => 'Varchar(255)',
         'Username' => 'Varchar(255)',
         'Password' => 'Varchar(255)',
+        'HashedPassword' => 'Varchar(255)',
     ];
     private static $has_many = [
         'VirtualHosts' => VirtualHost::class
@@ -70,11 +72,13 @@ class BasicAuthCreds extends DataObject
             'VirtualHosts',
             'Username',
             'Password',
+            'HashedPassword',
         ]);
         $fields->addFieldsToTab('Root.Main', [
             TextField::create('Title', 'Friendly Name'),
             TextField::create('Username', 'Username'),
             TextField::create('Password', 'Password'),
+            TextField::create('HashedPassword', 'Hashed Password')->setReadonly(true),
         ]);
 
         $virtualHosts = $this->VirtualHosts();
@@ -104,13 +108,12 @@ class BasicAuthCreds extends DataObject
         return $fields;
     }
 
-    public function getHashedPassword()
-    {
-        // Caddy recommends cost 14
+    protected function onBeforeWrite() {
+        parent::onBeforeWrite();
         $options = [
             'cost' => 14
         ];
-
-        return password_hash($this->Password, PASSWORD_BCRYPT, $options);
+        $this->HashedPassword = password_hash($this->Password, PASSWORD_BCRYPT, $options);
     }
+
 }

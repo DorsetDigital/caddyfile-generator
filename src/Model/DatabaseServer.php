@@ -20,8 +20,8 @@ use SilverStripe\Versioned\VersionedStateExtension;
  * @property ?string $DBUser
  * @property ?string $DBPassword
  * @method \SilverStripe\ORM\DataList|\DorsetDigital\Caddy\Model\DBCredentials[] DBCredentials()
- * @mixin \SilverStripe\Assets\Shortcodes\FileLinkTracking
  * @mixin \SilverStripe\Assets\AssetControlExtension
+ * @mixin \SilverStripe\Assets\Shortcodes\FileLinkTracking
  * @mixin \SilverStripe\CMS\Model\SiteTreeLinkTracking
  * @mixin \SilverStripe\Versioned\RecursivePublishable
  * @mixin \SilverStripe\Versioned\VersionedStateExtension

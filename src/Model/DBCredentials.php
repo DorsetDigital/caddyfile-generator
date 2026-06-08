@@ -31,8 +31,8 @@ use SilverStripe\Versioned\VersionedStateExtension;
  * @method \DorsetDigital\Caddy\Model\DatabaseServer DBServer()
  * @method \DorsetDigital\Caddy\Model\VirtualHost VirtualHost()
  * @mixin \SilverStripe\Admin\CMSEditLinkExtension
- * @mixin \SilverStripe\Assets\Shortcodes\FileLinkTracking
  * @mixin \SilverStripe\Assets\AssetControlExtension
+ * @mixin \SilverStripe\Assets\Shortcodes\FileLinkTracking
  * @mixin \SilverStripe\CMS\Model\SiteTreeLinkTracking
  * @mixin \SilverStripe\Versioned\RecursivePublishable
  * @mixin \SilverStripe\Versioned\VersionedStateExtension

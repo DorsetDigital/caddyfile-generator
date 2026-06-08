@@ -68,6 +68,13 @@ class ENVHelper
         return $this;
     }
 
+    public function getENVSignature() {
+        if ($this->site->hasEnvironmentVars()) {
+            return md5($this->getENVContents());
+        }
+        return null;
+    }
+
     /**
      * @param bool $dryRun
      * @return false|string
@@ -119,7 +126,7 @@ class ENVHelper
 
     private function populateSilverstripeDBVars(): void
     {
-        if ($this->site->DBCredentialsID > 0) {
+        if (($this->site->DBCredentialsID > 0) && ($this->site->AddSilverstripeDBENV)) {
             $this->addVariable('SS_DATABASE_SERVER', $this->site->DBCredentials()->DBServer()->URI);
             $this->addVariable('SS_DATABASE_NAME', $this->site->DBCredentials()->DBName);
             $this->addVariable('SS_DATABASE_USERNAME', $this->site->DBCredentials()->DBUserName);

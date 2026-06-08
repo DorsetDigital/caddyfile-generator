@@ -19,4 +19,5 @@ tls_insecure_skip_verify
 }<% end_if %>
 }
 <% end_if %>
+<% if $CustomConfig %>$CustomConfig<% end_if %>
 }
