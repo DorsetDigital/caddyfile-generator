@@ -467,12 +467,6 @@ class VirtualHost extends DataObject
         if ($this->DocumentRootSuffix) {
             $this->DocumentRootSuffix = trim($this->DocumentRootSuffix, '/ ');
         }
-
-        $envHelper = ENVHelper::create();
-        $sig = $envHelper->setSite($this)->generateENV()->getENVSignature();
-
-        $this->ENVSignature = $sig;
-
     }
 
     public function onBeforeDelete()
