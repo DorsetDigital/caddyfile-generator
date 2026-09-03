@@ -33,6 +33,7 @@ use SilverStripe\Versioned\Versioned;
 use SilverStripe\Versioned\VersionedStateExtension;
 use SilverStripe\VersionedAdmin\Forms\HistoryViewerField;
 use SilverStripe\View\HTML;
+use src\Model\Filesystem;
 use Symbiote\GridFieldExtensions\GridFieldAddNewInlineButton;
 use Symbiote\GridFieldExtensions\GridFieldEditableColumns;
 use Symbiote\GridFieldExtensions\GridFieldTitleHeader;
@@ -76,6 +77,7 @@ use UncleCheese\DisplayLogic\Forms\Wrapper;
  * @property int $UptimeMonitorID
  * @property int $PHPBackendID
  * @property int $DBCredentialsID
+ * @property int $FilesystemID
  * @method \SilverStripe\Assets\File TLSKey()
  * @method \SilverStripe\Assets\File TLSCert()
  * @method \DorsetDigital\Caddy\Model\SSLCertificate SSLCertificate()
@@ -83,6 +85,7 @@ use UncleCheese\DisplayLogic\Forms\Wrapper;
  * @method \DorsetDigital\Caddy\Model\UptimeMonitor UptimeMonitor()
  * @method \DorsetDigital\Caddy\Model\PHPBackend PHPBackend()
  * @method \DorsetDigital\Caddy\Model\DBCredentials DBCredentials()
+ * @method \src\Model\Filesystem Filesystem()
  * @method \SilverStripe\ORM\DataList|\DorsetDigital\Caddy\Model\RedirectRule[] RedirectRules()
  * @method \SilverStripe\ORM\DataList|\DorsetDigital\Caddy\Model\ENVVar[] ENVVars()
  * @mixin \SilverStripe\Admin\CMSEditLinkExtension
@@ -145,7 +148,7 @@ class VirtualHost extends DataObject
         'DocumentRootSuffix' => 'Varchar',
         'AddSilverstripeDBENV' => 'Boolean',
         'CustomConfig' => 'Text',
-        'ENVSignature' => 'Varchar',
+        'ENVSignature' => 'Varchar'
     ];
 
     private static $has_one = [
@@ -156,6 +159,7 @@ class VirtualHost extends DataObject
         'UptimeMonitor' => UptimeMonitor::class,
         'PHPBackend' => PHPBackend::class,
         'DBCredentials' => DBCredentials::class,
+        'Filesystem' => Filesystem::class
     ];
 
     private static $has_many = [
@@ -212,12 +216,13 @@ class VirtualHost extends DataObject
         $fields->removeByName([
             'TLSKey', 'TLSCert', 'SSLCertificateID', 'AuthCredentialsID', 'RedirectRules',
             'UptimeMonitorID', 'PHPBackendID', 'DBCredentialsID', 'ENVVars', 'ENVSignature',
+            'FilesystemID'
         ]);
 
         $absoluteRoot = '';
         if ($this->DocumentRoot) {
             $fsHelper = FilesystemHelper::create();
-            $absoluteRoot = $fsHelper->getFullHostPath($this->DocumentRoot);
+            $absoluteRoot = $fsHelper->getFullHostPath($this);
         }
 
         $fields->addFieldsToTab('Root.Main', [
@@ -253,6 +258,8 @@ class VirtualHost extends DataObject
             DropdownField::create('SSLCertificateID', 'SSL Certificate', SSLCertificate::get()->map('ID', 'Title'))
                 ->setEmptyString('Please select')
                 ->hideUnless('TLSMethod')->isEqualTo(self::TLS_STORED)->end(),
+            DropdownField::create('FilesystemID', 'Filesystem', Filesystem::get()->map('ID', 'Title'))
+            ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_HOST)->end(),
             TextField::create('DocumentRoot', 'Document Root')
                 ->setDescription('Leave blank for auto-generation (recommended).  Relative to virtualhosts root directory, no leading or trailing slashes.')
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_HOST)->end(),
@@ -461,8 +468,8 @@ class VirtualHost extends DataObject
         }
 
         if (($this->DocumentRoot == '') && ($this->HostType === self::HOST_TYPE_HOST)) {
-            $uuid = Uuid::uuid5(Uuid::NAMESPACE_URL, $this->HostName)->toString();
-            $this->DocumentRoot = $uuid;
+            $cleanHost = $this->cleanupString($this->Title);
+            $this->DocumentRoot = uniqid($cleanHost.'-', false);
         }
         if ($this->DocumentRootSuffix) {
             $this->DocumentRootSuffix = trim($this->DocumentRootSuffix, '/ ');
@@ -714,7 +721,7 @@ class VirtualHost extends DataObject
     public function getCurrentCaddyRoot()
     {
         $config = SiteConfig::current_site_config();
-        $basePath = trim($config->VirtualHostCaddyRoot, '/');
+        $basePath = trim($this->getFilesystemRoot(), '/');
 
         $docRoot = match ($this->SiteMode) {
             self::SITE_MODE_PROD => $this->DocumentRoot,
@@ -737,7 +744,7 @@ class VirtualHost extends DataObject
     public function getCaddyRoot()
     {
         $config = SiteConfig::current_site_config();
-        $basePath = trim($config->VirtualHostCaddyRoot, '/');
+        $basePath = trim($this->getFilesystemRoot(), '/');
 
         return sprintf('/%s/%s',
             $basePath,
@@ -766,13 +773,23 @@ class VirtualHost extends DataObject
         );
     }
 
+    public function getFilesystemRoot() {
+        if ($this->FilesystemID > 0) {
+            return $this->Filesystem()->BasePath;
+        }
+        $defaultFS = Filesystem::get()->filter(['DefaultOption' => 1])->first();
+        if ($defaultFS) {
+            return $defaultFS->BasePath;
+        }
+    }
+
     /**
      * @return string
      */
     public function getCurrentPHPRoot()
     {
         $config = SiteConfig::current_site_config();
-        $basePath = trim($config->VirtualHostPHPRoot, '/');
+        $basePath = trim($this->getFilesystemRoot(), '/');
 
         $docRoot = match ($this->SiteMode) {
             self::SITE_MODE_PROD => $this->getComputedDocumentRoot(),
@@ -785,8 +802,7 @@ class VirtualHost extends DataObject
 
     public function getPHPRoot()
     {
-        $config = SiteConfig::current_site_config();
-        $basePath = trim($config->VirtualHostPHPRoot, '/');
+        $basePath = trim($this->getFilesystemRoot(), '/');
         return sprintf('/%s/%s', $basePath, $this->getComputedDocumentRoot());
     }
 
@@ -798,6 +814,10 @@ class VirtualHost extends DataObject
     public function hasEnvironmentVars()
     {
         return ((($this->DBCredentialsID > 0) && ($this->AddSilverstripeDBENV)) || ($this->ENVVars()->count() > 0));
+    }
+
+    public function getENVPath() {
+        return sprintf('%s/%s/.env', $this->getFilesystemRoot(), $this->getBaseDirectory());
     }
 
 }

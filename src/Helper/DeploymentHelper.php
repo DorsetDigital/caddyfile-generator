@@ -122,6 +122,7 @@ class DeploymentHelper
                 if ($envFileName) {
                     $envFileMessages[] = sprintf("Writing env file to %s", $envFileName);
                     $site->update(['ENVSignature' => $thisENV->getENVSignature()])->write();
+                    $site->publishSingle();
                 }
             }
 

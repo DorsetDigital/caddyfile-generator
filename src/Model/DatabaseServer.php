@@ -45,29 +45,29 @@ class DatabaseServer extends DataObject
         $fields->removeByName(['DBCredentials']);
 
         $dbCreds = $this->DBCredentials();
-        if ($dbCreds->exists()) {
-            $list = '<p>';
-
-            /**
-             * @var DBCredentials $dbCred
-             */
-            foreach ($dbCreds as $dbCred) {
-                $link = $dbCred->getCMSEditLink();
-                $list .= sprintf(
-                    '<br><a href="%s">%s</a>',
-                    $link,
-                    htmlspecialchars($dbCred->Title)
-                );
-            }
-            $list .= '</p>';
-
-            $fields->addFieldsToTab(
-                'Root.Main', [
-                    HeaderField::create('Databases using this server'),
-                    LiteralField::create('LinkedDBs', $list)
-                ]
-            );
-        }
+//        if ($dbCreds->exists()) {
+//            $list = '<p>';
+//
+//            /**
+//             * @var DBCredentials $dbCred
+//             */
+//            foreach ($dbCreds as $dbCred) {
+//                $link = $dbCred->getCMSEditLink();
+//                $list .= sprintf(
+//                    '<br><a href="%s">%s</a>',
+//                    $link,
+//                    htmlspecialchars($dbCred->Title)
+//                );
+//            }
+//            $list .= '</p>';
+//
+//            $fields->addFieldsToTab(
+//                'Root.Main', [
+//                    HeaderField::create('Databases using this server'),
+//                    LiteralField::create('LinkedDBs', $list)
+//                ]
+//            );
+//        }
 
         return $fields;
     }

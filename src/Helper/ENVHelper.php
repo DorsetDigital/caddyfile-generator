@@ -119,9 +119,7 @@ class ENVHelper
     }
 
     private function getAbsoluteENVPath(): string {
-        $path = sprintf('%s/.env', $this->site->getBaseDirectory());
-        $fsHelper = FilesystemHelper::create();
-        return $fsHelper->getFullHostPath($path);
+        return $this->site->getENVPath();
     }
 
     private function populateSilverstripeDBVars(): void

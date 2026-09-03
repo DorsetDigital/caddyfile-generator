@@ -72,11 +72,10 @@ class FilesystemHelper
      */
     public function checkDirectoryForHost(VirtualHost $host)
     {
-        $path = $host->DocumentRoot;
-        if (!$path) {
+        if (!$host->DocumentRoot) {
             throw new Exception('Document root directory is empty in virtualhost');
         }
-        return is_dir($this->getFullHostPath($path));
+        return is_dir($this->getFullHostPath($host));
     }
 
     /**
@@ -84,12 +83,12 @@ class FilesystemHelper
      * @param string $directory
      * @return string
      */
-    public function getFullHostPath($directory)
+    public function getFullHostPath(VirtualHost $host)
     {
-        $basePath = $this->siteConfig->VirtualHostLocalRoot;
+        $basePath = $host->getFilesystemRoot();
         return sprintf('%s/%s',
             rtrim($basePath, '/'),
-            trim($directory, '/')
+            trim($host->DocumentRoot, '/')
         );
     }
 

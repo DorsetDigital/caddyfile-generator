@@ -1,1 +1,1 @@
-$ManualConfig
+$ManualConfig.RAW

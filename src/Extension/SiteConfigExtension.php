@@ -17,6 +17,7 @@ use SilverStripe\Forms\NumericField;
 use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\DataExtension;
 use SilverStripe\SiteConfig\SiteConfig;
+use src\Model\Filesystem;
 
 /**
  * Class \DorsetDigital\Caddy\Extension\SiteConfigExtension
@@ -29,10 +30,6 @@ use SilverStripe\SiteConfig\SiteConfig;
  * @property ?string $RedisUser
  * @property ?string $RedisPassword
  * @property ?string $RedisKeyPrefix
- * @property ?string $VirtualHostCaddyRoot
- * @property ?string $VirtualHostPHPRoot
- * @property ?string $VirtualHostLocalRoot
- * @property ?string $PHPCGIIP
  * @property ?string $TLSFilesCaddyRoot
  * @property ?string $TLSFilesRoot
  * @property int $ConfigPollingInterval
@@ -55,10 +52,6 @@ class SiteConfigExtension extends Extension
         'RedisUser' => 'Varchar',
         'RedisPassword' => 'Varchar',
         'RedisKeyPrefix' => 'Varchar',
-        'VirtualHostCaddyRoot' => 'Varchar',
-        'VirtualHostPHPRoot' => 'Varchar',
-        'VirtualHostLocalRoot' => 'Varchar',
-        'PHPCGIIP' => 'Varchar',
         'TLSFilesCaddyRoot' => 'Varchar',
         'TLSFilesRoot' => 'Varchar',
         'ConfigPollingInterval' => 'Int',
@@ -94,13 +87,6 @@ class SiteConfigExtension extends Extension
             TextField::create('RedisKeyPrefix', 'Redis Key Prefix')
                 ->setDescription("A random key will be created if you don't add one.   Once set, this should NOT be changed."),
             HeaderField::create('Global settings'),
-            TextField::create('PHPCGIIP', 'IP address of PHP CGI cluster'),
-            TextField::create('VirtualHostCaddyRoot', 'Caddy Virtualhost root')
-                ->setDescription('Absolute path to the virtualhost root inside a Caddy instance'),
-            TextField::create('VirtualHostPHPRoot', 'PHP Virtualhost root')
-                ->setDescription('Absolute path to the virtualhost root inside a PHP instance'),
-            TextField::create('VirtualHostLocalRoot', 'Virtualhost root')
-                ->setDescription('Absolute path to the virtualhost root on THIS device'),
             TextField::create('TLSFilesRoot', 'TLS files root')
                 ->setDescription('Absolute path to the TLS file storage root on THIS device'),
             TextField::create('TLSFilesCaddyRoot', 'Caddy TLS files root')
@@ -128,6 +114,10 @@ class SiteConfigExtension extends Extension
 
         $fields->addFieldsToTab('Root.DatabaseServers', [
             GridField::create('DBServers', 'Database Servers', DatabaseServer::get(), GridFieldConfig_RecordEditor::create())
+        ]);
+
+        $fields->addFieldsToTab('Root.Filesystems', [
+            GridField::create('Filesystems', 'Filesystems', Filesystem::get(), GridFieldConfig_RecordEditor::create())
         ]);
     }
 
