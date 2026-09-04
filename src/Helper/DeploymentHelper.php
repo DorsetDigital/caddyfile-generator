@@ -28,6 +28,7 @@ class DeploymentHelper
 
         $fileContents = $this->getGlobalBlock();
         $allSites = Versioned::get_by_stage(VirtualHost::class, 'Live');
+        $deploymentSites = $allSites->filter('HostType', VirtualHost::HOST_TYPE_HOST);
 
         /** @var VirtualHost $site */
         foreach ($allSites as $site) {
@@ -66,7 +67,7 @@ class DeploymentHelper
 
             $envFileMessages = [];
 
-            foreach ($allSites as $site) {
+            foreach ($deploymentSites as $site) {
                 $envFileName = $envHelper
                     ->setSite($site)
                     ->cleanUp(true)
@@ -109,7 +110,7 @@ class DeploymentHelper
 
         $envFileMessages = [];
 
-        foreach ($allSites as $site) {
+        foreach ($deploymentSites as $site) {
             if (!$fsHelper->checkDeploymentStructure($site)) {
                 $this->addMessage(sprintf(
                     'Failed to prepare deployment structure for %s',
