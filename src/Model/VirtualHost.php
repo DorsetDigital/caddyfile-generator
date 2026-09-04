@@ -539,7 +539,6 @@ class VirtualHost extends DataObject
             $result->addError("Cannot redirect to www if the host doesn't begin with www");
         }
 
-        //Check for exact host matches
         $siteCheck = self::get()->filter([
             'HostName' => $this->HostName,
         ])->exclude([
@@ -550,7 +549,6 @@ class VirtualHost extends DataObject
             $result->addError('This host already exists.');
         }
 
-        //If this hostname begins with 'www' check for the apex domain existence along with a www redirect
         if (str_starts_with($this->HostName, 'www.')) {
             $apex = substr($this->HostName, strlen('www.'));
 
@@ -566,7 +564,6 @@ class VirtualHost extends DataObject
             }
         }
 
-        //If this host has a www redirect, we need to check if the www version of the host is already present
         if ($this->HostRedirect == VirtualHost::REDIRECT_WWW_TO_ROOT) {
             $siteCheck = self::get()->filter([
                 'HostName' => 'www.' . $this->HostName,
@@ -578,7 +575,6 @@ class VirtualHost extends DataObject
             }
         }
 
-        //If this host is a www, and has a root to www redirect, we need to check for the apex domain elsewhere
         if ($this->HostRedirect == VirtualHost::REDIRECT_ROOT_TO_WWW) {
             $apex = substr($this->HostName, strlen('www.'));
 
@@ -592,7 +588,6 @@ class VirtualHost extends DataObject
                 $result->addError(sprintf('The root version of this domain is already covered by %s, so you cannot redirect the root to www', $siteCheck->first()->Title));
             }
         }
-
 
         if ($this->HostType == VirtualHost::HOST_TYPE_REDIRECT) {
             if ($this->RedirectTo == '') {
@@ -624,7 +619,6 @@ class VirtualHost extends DataObject
             $result->addError("Please select an SSL certificate from the list");
         }
 
-        //Make sure we have PHP set up
         if (($this->EnablePHP) && ($this->PHPBackendID < 1)) {
             $result->addError("Please select a PHP version to use");
         }
@@ -645,45 +639,27 @@ class VirtualHost extends DataObject
         }
     }
 
-    /**
-     * @return string
-     */
     private function getTLSCertFile()
     {
         return $this->DeployedCertificateFile;
     }
 
-    /**
-     * @return string
-     */
     private function getTLSKeyFile()
     {
         return $this->DeployedKeyFile;
     }
 
-    /**
-     * See if we need a TLS config block
-     * (only true if we're not in auto mode, and we're not on a maintenance page)
-     * @return bool
-     */
     public function getNeedsTLSConfig()
     {
         if (!$this->EnableHTTPS) {
             return false;
         }
-        //If the site is in coming soon mode, or maintenance mode, then we're dealing with the dev hostname at this point
-        //So we can let the auto tls kick in
         if (($this->SiteMode === self::SITE_MODE_COMING) || ($this->SiteMode === self::SITE_MODE_MAINTENANCE)) {
             return false;
         }
         return $this->TLSMethod !== self::TLS_AUTO;
     }
 
-    /**
-     * Check to see if we need a TLS config for a production domain that is in a temporary page status
-     * This only gets called from the coming soon and maintenance templates which are added for the production domain
-     * @return bool
-     */
     public function getTemporaryNeedsTLSConfig()
     {
         if (!$this->EnableHTTPS) {
@@ -738,9 +714,6 @@ class VirtualHost extends DataObject
         return ($usScheme == 'https');
     }
 
-    /**
-     * @return string
-     */
     public function getCaddyRoot()
     {
         $config = SiteConfig::current_site_config();
@@ -761,9 +734,6 @@ class VirtualHost extends DataObject
         );
     }
 
-    /**
-     * @return string
-     */
     public function getBaseDirectory()
     {
         $releaseDir = ($this->EnableZeroDowntime) ? '/'.FilesystemHelper::ZDT_SYMLINK_NAME : null;
@@ -783,9 +753,6 @@ class VirtualHost extends DataObject
         }
     }
 
-    /**
-     * @return string
-     */
     public function getCurrentPHPRoot()
     {
         $config = SiteConfig::current_site_config();
@@ -817,7 +784,15 @@ class VirtualHost extends DataObject
     }
 
     public function getENVPath() {
-        return sprintf('%s/%s/.env', $this->getFilesystemRoot(), $this->getBaseDirectory());
+        $envDirectory = $this->EnableZeroDowntime
+            ? sprintf('%s/%s', $this->DocumentRoot, FilesystemHelper::ZDT_SHARED_DIR_NAME)
+            : $this->DocumentRoot;
+
+        return sprintf(
+            '%s/%s/.env',
+            rtrim($this->getFilesystemRoot(), '/'),
+            trim($envDirectory, '/')
+        );
     }
 
 }
