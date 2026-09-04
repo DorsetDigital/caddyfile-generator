@@ -149,25 +149,25 @@ class DeploymentHelper
 
         //return true; //DEBUGGING
 
-//        $helper = BitbucketHelper::create();
-//        $bitbucketRes[] = $helper->commitFile($fileContents, '/Caddyfile')->getMessage();
-//        $bitbucketRes[] = $helper->commitFile($adminFileContents, '/admin.json')->getMessage();
+        $helper = BitbucketHelper::create();
+        $bitbucketRes[] = $helper->commitFile($fileContents, '/Caddyfile')->getMessage();
+        $bitbucketRes[] = $helper->commitFile($adminFileContents, '/admin.json')->getMessage();
 
         $config = SiteConfig::current_site_config();
         if ($config->EnableWAF) {
             //Deploy the WAF config files to the repo too (directives are managed elsewhere)
             if ($config->CorazaConfigID > 0) {
-//                $bitbucketRes[] = $helper->commitFile($config->CorazaConfig()->getString(), '/waf/' . VirtualHost::CORAZA_CONFIG_FILENAME)->getMessage();
+                $bitbucketRes[] = $helper->commitFile($config->CorazaConfig()->getString(), '/waf/' . VirtualHost::CORAZA_CONFIG_FILENAME)->getMessage();
             }
             if ($config->CoreRuleSetConfigID > 0) {
-//                $bitbucketRes[] = $helper->commitFile($config->CoreRuleSetConfig()->getString(), '/waf/' . VirtualHost::CRS_CONFIG_FILENAME)->getMessage();
+                $bitbucketRes[] = $helper->commitFile($config->CoreRuleSetConfig()->getString(), '/waf/' . VirtualHost::CRS_CONFIG_FILENAME)->getMessage();
             }
         }
 
-//        $prRes = $helper->createPR()->getMessage();
+        $prRes = $helper->createPR()->getMessage();
 
-//        $this->addMessage("<pre>" . implode("\n", $bitbucketRes) . "</pre>\n");
-//        $this->addMessage("<p>" . $prRes . "</p>\n");
+        $this->addMessage("<pre>" . implode("\n", $bitbucketRes) . "</pre>\n");
+        $this->addMessage("<p>" . $prRes . "</p>\n");
         return true;
     }
 
