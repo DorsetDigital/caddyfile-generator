@@ -29,16 +29,23 @@ class FilesystemHelper
      */
     public function createNewDocumentRoots()
     {
-        $requiredDirs = $this->getNewHostDirectories();
-        if (count($requiredDirs) < 1) {
-            return "No new directories to create";
-        }
         $created = [];
-        foreach ($requiredDirs as $dir) {
-            $fullPath = $this->getFullHostPath($dir);
-            if ($this->createDirectory($fullPath)) {
-                $created[] = $dir;
+        $hosts = VirtualHost::getStandardSites();
+        /**
+         * @var VirtualHost $host
+         */
+        foreach ($hosts as $host) {
+            $dirExists = $this->checkDirectoryForHost($host);
+            if (!$dirExists) {
+                $fullPath = rtrim($host->getFilesystemRoot(), '/').'/'.$host->DocumentRoot;
+                if ($this->createDirectory($fullPath)) {
+                    $created[] = $fullPath;
+                }
             }
+        }
+
+        if (count($created) < 1) {
+            return "No directories created";
         }
 
         return sprintf('Created directories: %s', implode(', ', $created));
@@ -80,7 +87,7 @@ class FilesystemHelper
 
     /**
      * Returns the full path for the given directory.  No trailing slash
-     * @param string $directory
+     * @param VirtualHost $host
      * @return string
      */
     public function getFullHostPath(VirtualHost $host)
@@ -111,7 +118,7 @@ class FilesystemHelper
      * @param VirtualHost $site
      * @return bool
      */
-    public function checkDeploymentStructure(VirtualHost $site)
+    public function checkDeploymentStructure(VirtualHost $site): bool
     {
         if ((!$site->EnableZeroDowntime) || (!$site->DocumentRoot)) {
             return true;
@@ -119,12 +126,12 @@ class FilesystemHelper
 
         //See if the "current" directory exists for the site
         //If not, we need to create a system directory and symlink it so deployer can do its thing
-        $checkLinkPath = rtrim($this->getFullHostPath($site->DocumentRoot), '/') . '/' . self::ZDT_SYMLINK_NAME;
+        $checkLinkPath = rtrim($site->getFilesystemRoot(), '/') . '/' . self::ZDT_SYMLINK_NAME;
         if ((is_dir($checkLinkPath)) || (is_link($checkLinkPath))) {
             return true;
         }
 
-        $linkTarget = rtrim($this->getFullHostPath($site->DocumentRoot), '/') . '/' . self::ZDT_BASEDIR_NAME;
+        $linkTarget = rtrim($site->getFilesystemRoot(), '/') . '/' . self::ZDT_BASEDIR_NAME;
         try {
             mkdir($linkTarget, 0755, true);
             symlink($linkTarget, $checkLinkPath);

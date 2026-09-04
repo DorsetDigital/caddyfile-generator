@@ -469,7 +469,7 @@ class VirtualHost extends DataObject
 
         if (($this->DocumentRoot == '') && ($this->HostType === self::HOST_TYPE_HOST)) {
             $cleanHost = $this->cleanupString($this->Title);
-            $this->DocumentRoot = uniqid($cleanHost.'-', false);
+            $this->DocumentRoot = strtolower(uniqid($cleanHost.'-', false));
         }
         if ($this->DocumentRootSuffix) {
             $this->DocumentRootSuffix = trim($this->DocumentRootSuffix, '/ ');
