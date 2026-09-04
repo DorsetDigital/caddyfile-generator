@@ -29,10 +29,7 @@ class DeploymentHelper
         $fileContents = $this->getGlobalBlock();
         $allSites = Versioned::get_by_stage(VirtualHost::class, 'Live');
 
-
-        /**
-         * @var VirtualHost $site
-         */
+        /** @var VirtualHost $site */
         foreach ($allSites as $site) {
             if (!$this->dryRun) {
                 CaddyHelper::deployTLSFiles($site);
@@ -92,7 +89,7 @@ class DeploymentHelper
             if (count($requiredDirs) < 1) {
                 $this->addMessage('No directories required.');
             } else {
-                $this->addMessage('Creating directores: ' . implode(', ', $requiredDirs));
+                $this->addMessage('Creating directories: ' . implode(', ', $requiredDirs));
             }
             $this->addMessage("------------------------------------");
             $this->addMessage("ENV files");
@@ -113,19 +110,34 @@ class DeploymentHelper
         $envFileMessages = [];
 
         foreach ($allSites as $site) {
-            $fsHelper->checkDeploymentStructure($site);
+            if (!$fsHelper->checkDeploymentStructure($site)) {
+                $this->addMessage(sprintf(
+                    'Failed to prepare deployment structure for %s',
+                    $site->HostName
+                ));
+                continue;
+            }
 
             $thisENV = $envHelper->setSite($site)->generateENV();
             if ($thisENV->getENVSignature() !== $site->ENVSignature) {
                 $envFileName = $thisENV->writeToFile();
 
                 if ($envFileName) {
+                    if ($site->EnableZeroDowntime && !$fsHelper->ensureENVLink($site)) {
+                        $envFileMessages[] = sprintf(
+                            'Wrote env file to %s but failed to create current/.env symlink',
+                            $envFileName
+                        );
+                        continue;
+                    }
+
                     $envFileMessages[] = sprintf("Writing env file to %s", $envFileName);
                     $site->update(['ENVSignature' => $thisENV->getENVSignature()])->write();
                     $site->publishSingle();
                 }
+            } elseif ($site->EnableZeroDowntime && $site->hasEnvironmentVars()) {
+                $fsHelper->ensureENVLink($site);
             }
-
         }
 
         $this->addMessage("------------------------------------");
