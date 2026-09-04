@@ -13,6 +13,7 @@ class FilesystemHelper
 
     const ZDT_SYMLINK_NAME = 'current';
     const ZDT_BASEDIR_NAME = 'basedeploy';
+    const ZDT_SHARED_DIR_NAME = 'shared';
 
     private $siteConfig;
 
@@ -37,7 +38,7 @@ class FilesystemHelper
         foreach ($hosts as $host) {
             $dirExists = $this->checkDirectoryForHost($host);
             if (!$dirExists) {
-                $fullPath = rtrim($host->getFilesystemRoot(), '/').'/'.$host->DocumentRoot;
+                $fullPath = $this->getFullHostPath($host);
                 if ($this->createDirectory($fullPath)) {
                     $created[] = $fullPath;
                 }
@@ -62,13 +63,11 @@ class FilesystemHelper
         $dirs = [];
         $hosts = VirtualHost::getStandardSites();
         foreach ($hosts as $host) {
-            //Injector::inst()->get(LoggerInterface::class)->info(sprintf("Checking host %s for %s", $host->HostName, $host->DocumentRoot));
             $dirExists = $this->checkDirectoryForHost($host);
             if (!$dirExists) {
-                $dirs[] = $host->DocumentRoot;
+                $dirs[] = $this->getFullHostPath($host);
             }
         }
-        //Injector::inst()->get(LoggerInterface::class)->info(print_r($dirs, true));
         return $dirs;
     }
 
@@ -86,11 +85,9 @@ class FilesystemHelper
     }
 
     /**
-     * Returns the full path for the given directory.  No trailing slash
-     * @param VirtualHost $host
-     * @return string
+     * Returns the full path for the given host document root. No trailing slash.
      */
-    public function getFullHostPath(VirtualHost $host)
+    public function getFullHostPath(VirtualHost $host): string
     {
         $basePath = $host->getFilesystemRoot();
         return sprintf('%s/%s',
@@ -113,64 +110,100 @@ class FilesystemHelper
     }
 
     /**
-     * Check to see if the file system structure is in place for zero-downtime deployments if needed
-     * and create it if not
-     * @param VirtualHost $site
-     * @return bool
+     * Ensure the filesystem structure required for deployment exists.
+     *
+     * Zero-downtime sites use:
+     *   <document root>/current -> <document root>/basedeploy
+     *   <document root>/shared
+     *
+     * If a document root suffix is configured, ensure it exists beneath the
+     * directory Caddy will actually serve from.
      */
     public function checkDeploymentStructure(VirtualHost $site): bool
     {
-        if ((!$site->EnableZeroDowntime) || (!$site->DocumentRoot)) {
+        if (!$site->DocumentRoot) {
             return true;
         }
 
-        //See if the "current" directory exists for the site
-        //If not, we need to create a system directory and symlink it so deployer can do its thing
-        $checkLinkPath = rtrim($site->getFilesystemRoot(), '/') . '/' . self::ZDT_SYMLINK_NAME;
-        if ((is_dir($checkLinkPath)) || (is_link($checkLinkPath))) {
-            return true;
-        }
+        $siteRoot = $this->getFullHostPath($site);
 
-        $linkTarget = rtrim($site->getFilesystemRoot(), '/') . '/' . self::ZDT_BASEDIR_NAME;
         try {
-            mkdir($linkTarget, 0755, true);
-            symlink($linkTarget, $checkLinkPath);
+            $this->createDirectory($siteRoot);
+
+            $deploymentRoot = $siteRoot;
+
+            if ($site->EnableZeroDowntime) {
+                $linkTarget = $siteRoot . '/' . self::ZDT_BASEDIR_NAME;
+                $checkLinkPath = $siteRoot . '/' . self::ZDT_SYMLINK_NAME;
+                $sharedPath = $siteRoot . '/' . self::ZDT_SHARED_DIR_NAME;
+
+                $this->createDirectory($linkTarget);
+                $this->createDirectory($sharedPath);
+
+                if (!is_dir($checkLinkPath) && !is_link($checkLinkPath)) {
+                    symlink($linkTarget, $checkLinkPath);
+                }
+
+                $deploymentRoot = $checkLinkPath;
+            }
+
+            if ($site->DocumentRootSuffix) {
+                $this->createDirectory(
+                    rtrim($deploymentRoot, '/') . '/' . trim($site->DocumentRootSuffix, '/')
+                );
+            }
+
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Ensure a zero-downtime site's .env symlink points at the shared copy.
+     */
+    public function ensureENVLink(VirtualHost $site): bool
+    {
+        if (!$site->EnableZeroDowntime || !$site->DocumentRoot) {
             return true;
         }
-        catch (Exception $e) {
+
+        $siteRoot = $this->getFullHostPath($site);
+        $sharedEnv = $siteRoot . '/' . self::ZDT_SHARED_DIR_NAME . '/.env';
+        $currentEnv = $siteRoot . '/' . self::ZDT_SYMLINK_NAME . '/.env';
+
+        if (is_link($currentEnv)) {
+            return true;
+        }
+
+        if (file_exists($currentEnv)) {
             return false;
         }
 
-
+        try {
+            return symlink($sharedEnv, $currentEnv);
+        } catch (Exception $e) {
+            return false;
+        }
     }
 
     function sanitiseDirectoryName(string $input, bool $lowercase = true): string
     {
-        // Normalise whitespace
         $name = trim($input);
         $name = preg_replace('/\s+/', '-', $name);
-
-        // Remove anything not safe for Linux directory names
         $name = preg_replace('/[^a-zA-Z0-9._-]/', '-', $name);
-
-        // Collapse multiple dashes
         $name = preg_replace('/-+/', '-', $name);
 
-        // Prevent "." and ".."
         if ($name === '.' || $name === '..') {
             $name = '';
         }
 
-        // Trim leading/trailing dots and dashes
         $name = trim($name, '.-');
 
-        // Lowercase if desired
         if ($lowercase) {
             $name = strtolower($name);
         }
 
         return $name;
     }
-
-
 }
