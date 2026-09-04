@@ -181,7 +181,6 @@ class VirtualHost extends DataObject
         'Title' => 'Site',
         'HostName' => 'Hostname',
         'HostTypeName' => 'Site Type',
-        'SiteModeName' => 'Mode',
         'EnableWAF.Nice' => 'WAF',
     ];
 
@@ -277,9 +276,7 @@ class VirtualHost extends DataObject
             CheckboxField::create('EnablePHP', 'Enable PHP')
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_HOST)->end(),
             DropdownField::create(
-                'PHPBackendID',
-                'PHP Version',
-                PHPBackend::get()->map('ID', 'Title')
+                'PHPBackendID', 'PHP Version', $this->getPHPBackends()
             )->setEmptyString('Please select:')
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_HOST)
                 ->andIf('EnablePHP')->isChecked()
@@ -308,469 +305,25 @@ class VirtualHost extends DataObject
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_PROXY)->end()
         ]);
 
-        if (SiteConfig::current_site_config()->EnableWAF) {
-            $fields->insertAfter('HostName', CheckboxField::create('EnableWAF', 'Enable WAF')
-                ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end());
-        }
-
-        if ($this->HostType == self::HOST_TYPE_HOST) {
-            $fields->addFieldsToTab('Root.DatabaseAndEnvironment', [
-                DropdownField::create('DBCredentialsID', 'DB Credentials', DBCredentials::getUnassignedCredentials($this->ID))
-                    ->setEmptyString('Please select:')
-                    ->setDescription('Note: this only shows credentials which are active and are not already assigned')
-            ]);
-            if ($this->DBCredentialsID > 0) {
-                $fields->addFieldsToTab('Root.DatabaseAndEnvironment', [
-                    TextField::create('ShowDBServerURI', 'DB Server')
-                        ->setValue($this->DBCredentials()->DBServer()->URI)->setReadonly(true),
-                    TextField::create('ShowDBName', 'Database name')
-                        ->setValue($this->DBCredentials()->DBName)->setReadonly(true),
-                    TextField::create('ShowDBUserName', 'Database username')
-                        ->setValue($this->DBCredentials()->DBUserName)->setReadonly(true),
-                    TextField::create('ShowDBPassword', 'Database password')
-                        ->setValue($this->DBCredentials()->DBPassword)->setReadonly(true),
-                ]);
-            }
-            $fields->addFieldsToTab('Root.DatabaseAndEnvironment', [
-                HeaderField::create('Environment', 'Environment')
-            ]);
-            if ($this->DBCredentialsID > 0) {
-                $fields->addFieldsToTab('Root.DatabaseAndEnvironment', [
-                    CheckboxField::create('AddSilverstripeDBENV', 'Add Silverstripe DB ENV Vars to Server')
-                ]);
-            }
-            $fields->addFieldsToTab('Root.DatabaseAndEnvironment', [
-                GridField::create('ENVVars', 'ENV Vars', $this->ENVVars(),
-                    GridFieldConfig::create()
-                        ->addComponent(GridFieldButtonRow::create('before'))
-                        ->addComponent(GridFieldToolbarHeader::create())
-                        ->addComponent(GridFieldTitleHeader::create())
-                        ->addComponent(GridFieldEditableColumns::create())
-                        ->addComponent(GridFieldDeleteAction::create())
-                        ->addComponent(GridFieldAddNewInlineButton::create())
-                ),
-                TextField::create('ENVSignature', 'Environment Signature')->setReadonly(true),
-            ]);
-        }
-
-        $fields->addFieldsToTab('Root.Main', [
-            DropdownField::create('AuthCredentialsID', 'Auth Access Credentials', BasicAuthCreds::get()->map('ID', 'Title'))
-                ->setEmptyString('No auth required')
-                ->hideUnless('HostType')->isEqualTo(self::HOST_TYPE_HOST)
-                ->orIf('HostType')->isEqualTo(self::HOST_TYPE_PROXY)->end(),
-        ]);
-
-        $fields->addFieldsToTab('Root.History', [
-            HistoryViewerField::create('HistoryViewer', 'History Viewer')
-        ]);
-
-        $redirectGrid = GridField::create('Redirects', 'Redirects', $this->RedirectRules(),
-            GridFieldConfig_RecordEditor::create());
-
-        $fields->addFieldsToTab('Root.Redirects', [
-                LiteralField::create('redirectnote',
-                    HTML::createTag('p', [
-                        'class' => 'alert alert-warning mb-4'
-                    ],
-                        "Are you sure you should be doing this?   Redirects should generally be added to the application, not to the hosting!  Redirects should be used sparingly and only when absolutely necessary - they use valuable memory in the hosting configuration system.")
-                ),
-                Wrapper::create($redirectGrid)
-                    ->displayUnless('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end()
-            ]
-        );
-
-        $fields->addFieldsToTab('Root.ExtraConfig', [
-            TextareaField::create('CustomConfig', 'Extra config')
-            ->setRows(10)
-            ->setDescription('This config will be added to the host block.  NOTE: this config will be passed verbatim, make sure you check it is valid!')
-        ]);
-
         return $fields;
     }
 
-    private function getSiteModes()
-    {
-        return [
-            self::SITE_MODE_COMING => _t(__CLASS__ . '.modecoming', 'Coming Soon'),
-            self::SITE_MODE_MAINTENANCE => _t(__CLASS__ . '.modemaintenance', 'Maintenance Mode'),
-            self::SITE_MODE_PROD => _t(__CLASS__ . '.modeprod', 'Live')
-        ];
-    }
-
-    private function getDevURI()
-    {
-        $devDomain = $this->getDevDomain();
-        return sprintf('https://%s', $devDomain);
-    }
-
-    private function getDevDomain()
-    {
-        if ($this->HostName) {
-            $host = $this->cleanupString($this->HostName);
-            $base = $this->config()->get('dev_base_domain');
-            return strtolower(sprintf('%s.%s', $host, $base));
-        }
-    }
-
-    private function cleanupString($in)
-    {
-        $output = preg_replace('/[^a-zA-Z0-9\s\.-]/', '', $in);
-        $output = trim($output);
-        $output = preg_replace('/\.+/', '-', $output);
-        return preg_replace('/\s+/', '-', $output);
-    }
-
-    private function getHostTypes()
-    {
-        return [
-            self::HOST_TYPE_HOST => _t(__CLASS__ . '.host', 'Standard host'),
-            self::HOST_TYPE_REDIRECT => _t(__CLASS__ . '.redirecthost', 'Redirect host'),
-            self::HOST_TYPE_PROXY => _t(__CLASS__ . '.proxyhost', 'Proxy host'),
-            self::HOST_TYPE_MANUAL => _t(__CLASS__ . '.manualhost', 'Manual host configuration')
-        ];
-    }
-
-    private function getTLSModes()
-    {
-        return [
-            self::TLS_AUTO => _t(__CLASS__ . '.tlsauto', 'Automatic'),
-            self::TLS_MANUAL => _t(__CLASS__ . 'tlsmanual', 'Manual certificate'),
-            self::TLS_LOCAL => _t(__CLASS__ . '.tlslocal', 'Local / self-signed certificate'),
-            self::TLS_STORED => _t(__CLASS__ . '.tlsstored', 'Existing certificate'),
-        ];
-    }
-
-    private function getHostRedirectOpts()
-    {
-        return [
-            self::REDIRECT_NONE => _t(__CLASS__ . '.noredirect', 'No host redirect'),
-            self::REDIRECT_WWW_TO_ROOT => _t(__CLASS__ . '.wwwtoroot', 'Redirect www to root'),
-            self::REDIRECT_ROOT_TO_WWW => _t(__CLASS__ . '.roottowww', 'Redirect root to www')
-        ];
-    }
-
-    public function onBeforeWrite()
-    {
-        parent::onBeforeWrite();
-        if ($this->UptimeMonitorID < 1) {
-            $enabled = ($this->UptimeMonitorEnabled == true);
-            $monitor = UptimeMonitor::create([
-                'Active' => $enabled,
-            ]);
-            $monitor->write();
-            $this->UptimeMonitorID = $monitor->ID;
-        } else {
-            if ($this->UptimeMonitorEnabled != true) {
-                $this->UptimeMonitor()->update([
-                    'Active' => false,
-                ])->write();
-            }
-        }
-
-        if (($this->DocumentRoot == '') && ($this->HostType === self::HOST_TYPE_HOST)) {
-            $cleanHost = $this->cleanupString($this->Title);
-            $this->DocumentRoot = strtolower(uniqid($cleanHost.'-', false));
-        }
-        if ($this->DocumentRootSuffix) {
-            $this->DocumentRootSuffix = trim($this->DocumentRootSuffix, '/ ');
-        }
-    }
-
-    public function onBeforeDelete()
-    {
-        parent::onBeforeDelete();
-        if ($this->UptimeMonitorID > 0) {
-            $this->UptimeMonitor()->update(['Active' => false])->write();
-        }
-    }
-
-    public function onAfterWrite()
-    {
-        parent::onAfterWrite();
-        if ($this->TLSKeyID > 0) {
-            $this->TLSKey()->protectFile();
-        }
-        if ($this->TLSCertID > 0) {
-            $this->TLSCert()->protectFile();
-        }
-    }
-
-    public function getCurrentHostName()
-    {
-        return ($this->SiteMode === self::SITE_MODE_PROD) ? $this->HostName : $this->getDevDomain();
-    }
-
-    public function getBaseURL()
-    {
-        if ($this->EnableHTTPS || ($this->SiteMode !== self::SITE_MODE_PROD)) {
-            $protocol = 'https';
-        } else {
-            $protocol = 'http';
-        }
-
-        $hostname = ($this->SiteMode === self::SITE_MODE_PROD) ? $this->HostName : $this->getDevDomain();
-
-        return sprintf('%s://%s', $protocol, $hostname);
-    }
-
-    public function getHostTypeName()
-    {
-        $types = self::getHostTypes();
-        return $types[$this->HostType];
-    }
-
-    public function getSiteModeName()
-    {
-        $modes = self::getSiteModes();
-        return $modes[$this->SiteMode];
-    }
-
-    public function validate(): ValidationResult
-    {
-        $result = parent::validate();
-
-        if (($this->HostRedirect == VirtualHost::REDIRECT_WWW_TO_ROOT)
-            && (str_starts_with($this->HostName, 'www'))) {
-            $result->addError("Cannot redirect www to root if the host begins with www!");
-        }
-
-        if (($this->HostRedirect == VirtualHost::REDIRECT_ROOT_TO_WWW)
-            && (!str_starts_with($this->HostName, 'www'))) {
-            $result->addError("Cannot redirect to www if the host doesn't begin with www");
-        }
-
-        //Check for exact host matches
-        $siteCheck = self::get()->filter([
-            'HostName' => $this->HostName,
-        ])->exclude([
-            'ID' => $this->ID,
-        ]);
-
-        if ($siteCheck->count() > 0) {
-            $result->addError('This host already exists.');
-        }
-
-        //If this hostname begins with 'www' check for the apex domain existence along with a www redirect
-        if (str_starts_with($this->HostName, 'www.')) {
-            $apex = substr($this->HostName, strlen('www.'));
-
-            $siteCheck = self::get()->filter([
-                'HostName' => $apex,
-                'HostRedirect' => VirtualHost::REDIRECT_WWW_TO_ROOT,
-            ])->exclude([
-                'ID' => $this->ID,
-            ]);
-
-            if ($siteCheck->count() > 0) {
-                $result->addError(sprintf('The www version of this domain is already covered by %s', $siteCheck->first()->Title));
-            }
-        }
-
-        //If this host has a www redirect, we need to check if the www version of the host is already present
-        if ($this->HostRedirect == VirtualHost::REDIRECT_WWW_TO_ROOT) {
-            $siteCheck = self::get()->filter([
-                'HostName' => 'www.' . $this->HostName,
-            ])->exclude([
-                'ID' => $this->ID,
-            ]);
-            if ($siteCheck->count() > 0) {
-                $result->addError(sprintf('The www version of this domain is already covered by %s, so you cannot redirect www to root.', $siteCheck->first()->Title));
-            }
-        }
-
-        //If this host is a www, and has a root to www redirect, we need to check for the apex domain elsewhere
-        if ($this->HostRedirect == VirtualHost::REDIRECT_ROOT_TO_WWW) {
-            $apex = substr($this->HostName, strlen('www.'));
-
-            $siteCheck = self::get()->filter([
-                'HostName' => $apex
-            ])->exclude([
-                'ID' => $this->ID,
-            ]);
-
-            if ($siteCheck->count() > 0) {
-                $result->addError(sprintf('The root version of this domain is already covered by %s, so you cannot redirect the root to www', $siteCheck->first()->Title));
-            }
-        }
-
-
-        if ($this->HostType == VirtualHost::HOST_TYPE_REDIRECT) {
-            if ($this->RedirectTo == '') {
-                $result->addError("Please add a redirection target");
-            } else {
-                if ((!str_starts_with($this->RedirectTo, 'http://')) && (!str_starts_with($this->RedirectTo, 'https://'))) {
-                    $result->addError("Please make sure the redirection target includes the protocol (http or https)");
-                }
-            }
-        }
-
-        if ($this->HostType == VirtualHost::HOST_TYPE_PROXY) {
-            if ($this->ProxyHost == '') {
-                $result->addError("Please add a proxy host");
-            } else {
-                if ((!str_starts_with($this->ProxyHost, 'http://')) && (!str_starts_with($this->ProxyHost, 'https://'))) {
-                    $result->addError("Please make sure the proxy host includes the protocol (http or https)");
-                }
-            }
-        }
-
-        if ($this->TLSMethod === self::TLS_MANUAL) {
-            if (($this->TLSKeyID < 1) || ($this->TLSCertID < 1)) {
-                $result->addError("Please add the required SSL key and certificate files");
-            }
-        }
-
-        if (($this->TLSMethod === self::TLS_STORED) && ($this->SSLCertificateID < 1)) {
-            $result->addError("Please select an SSL certificate from the list");
-        }
-
-        //Make sure we have PHP set up
-        if (($this->EnablePHP) && ($this->PHPBackendID < 1)) {
-            $result->addError("Please select a PHP version to use");
-        }
-
-        return $result;
-    }
-
-    public function getTLSConfigValue()
-    {
-        if ($this->TLSMethod === self::TLS_LOCAL) {
-            return 'internal';
-        }
-        if ($this->TLSMethod === self::TLS_MANUAL) {
-            return $this->getTLSCertFile() . " " . $this->getTLSKeyFile();
-        }
-        if ($this->TLSMethod === self::TLS_STORED) {
-            return $this->SSLCertificate()->getTLSConfigValue();
-        }
-    }
-
-    /**
-     * @return string
-     */
-    private function getTLSCertFile()
-    {
-        return $this->DeployedCertificateFile;
-    }
-
-    /**
-     * @return string
-     */
-    private function getTLSKeyFile()
-    {
-        return $this->DeployedKeyFile;
-    }
-
-    /**
-     * See if we need a TLS config block
-     * (only true if we're not in auto mode, and we're not on a maintenance page)
-     * @return bool
-     */
-    public function getNeedsTLSConfig()
-    {
-        if (!$this->EnableHTTPS) {
-            return false;
-        }
-        //If the site is in coming soon mode, or maintenance mode, then we're dealing with the dev hostname at this point
-        //So we can let the auto tls kick in
-        if (($this->SiteMode === self::SITE_MODE_COMING) || ($this->SiteMode === self::SITE_MODE_MAINTENANCE)) {
-            return false;
-        }
-        return $this->TLSMethod !== self::TLS_AUTO;
-    }
-
-    /**
-     * Check to see if we need a TLS config for a production domain that is in a temporary page status
-     * This only gets called from the coming soon and maintenance templates which are added for the production domain
-     * @return bool
-     */
-    public function getTemporaryNeedsTLSConfig()
-    {
-        if (!$this->EnableHTTPS) {
-            return false;
-        }
-        return $this->TLSMethod !== self::TLS_AUTO;
-    }
-
-    public function getWAFEnabled()
-    {
-        $config = SiteConfig::current_site_config();
-        return ($config->EnableWAF && $this->EnableWAF);
-    }
-
-    public function getCorazaConfigFile()
-    {
-        $config = SiteConfig::current_site_config();
-        if ($config->CorazaConfigID > 0) {
-            $configPath = ($config->WAFConfigCaddyPath) ? rtrim($config->WAFConfigCaddyPath, '/') . '/' : '';
-            return $configPath . self::CORAZA_CONFIG_FILENAME;
-        }
-        return false;
-    }
-
-    public function getCRSConfigFile()
-    {
-        $config = SiteConfig::current_site_config();
-        if ($config->CoreRuleSetConfigID > 0) {
-            $configPath = ($config->WAFConfigCaddyPath) ? rtrim($config->WAFConfigCaddyPath, '/') . '/' : '';
-            return $configPath . self::CRS_CONFIG_FILENAME;
-        }
-        return false;
-    }
-
-    public function getCurrentCaddyRoot()
-    {
-        $config = SiteConfig::current_site_config();
-        $basePath = trim($this->getFilesystemRoot(), '/');
-
-        $docRoot = match ($this->SiteMode) {
-            self::SITE_MODE_PROD => $this->DocumentRoot,
-            self::SITE_MODE_MAINTENANCE => self::HOST_DIRECTORY_MAINTENANCE,
-            self::SITE_MODE_COMING => self::HOST_DIRECTORY_COMINGSOON
-        };
-
-        return sprintf('/%s/%s', $basePath, $docRoot);
-    }
-
-    public function getIsHTTPSUpstream()
-    {
-        $usScheme = parse_url($this->ProxyHost, PHP_URL_SCHEME);
-        return ($usScheme == 'https');
-    }
-
-    /**
-     * @return string
-     */
     public function getCaddyRoot()
     {
-        $config = SiteConfig::current_site_config();
         $basePath = trim($this->getFilesystemRoot(), '/');
-
-        return sprintf('/%s/%s',
-            $basePath,
-            $this->getComputedDocumentRoot()
-        );
+        return sprintf('/%s/%s', $basePath, $this->getComputedDocumentRoot());
     }
 
     private function getComputedDocumentRoot()
     {
         $rootSuffix = ($this->DocumentRootSuffix) ? '/' . $this->DocumentRootSuffix : null;
-        return sprintf('%s%s',
-            $this->getBaseDirectory(),
-            $rootSuffix
-        );
+        return sprintf('%s%s', $this->getBaseDirectory(), $rootSuffix);
     }
 
-    /**
-     * @return string
-     */
     public function getBaseDirectory()
     {
         $releaseDir = ($this->EnableZeroDowntime) ? '/'.FilesystemHelper::ZDT_SYMLINK_NAME : null;
-        return sprintf('%s%s',
-            $this->DocumentRoot,
-            $releaseDir
-        );
+        return sprintf('%s%s', $this->DocumentRoot, $releaseDir);
     }
 
     public function getFilesystemRoot() {
@@ -783,41 +336,20 @@ class VirtualHost extends DataObject
         }
     }
 
-    /**
-     * @return string
-     */
-    public function getCurrentPHPRoot()
-    {
-        $config = SiteConfig::current_site_config();
-        $basePath = trim($this->getFilesystemRoot(), '/');
-
-        $docRoot = match ($this->SiteMode) {
-            self::SITE_MODE_PROD => $this->getComputedDocumentRoot(),
-            self::SITE_MODE_MAINTENANCE => '_maintenance',
-            self::SITE_MODE_COMING => '_comingsoon'
-        };
-
-        return sprintf('/%s/%s', $basePath, $docRoot);
-    }
-
-    public function getPHPRoot()
-    {
-        $basePath = trim($this->getFilesystemRoot(), '/');
-        return sprintf('/%s/%s', $basePath, $this->getComputedDocumentRoot());
-    }
-
-    public function getPHPCGIURI()
-    {
-        return $this->PHPBackend()->URI;
-    }
-
     public function hasEnvironmentVars()
     {
         return ((($this->DBCredentialsID > 0) && ($this->AddSilverstripeDBENV)) || ($this->ENVVars()->count() > 0));
     }
 
     public function getENVPath() {
-        return sprintf('%s/%s/.env', $this->getFilesystemRoot(), $this->getBaseDirectory());
-    }
+        $envDirectory = $this->EnableZeroDowntime
+            ? sprintf('%s/%s', $this->DocumentRoot, FilesystemHelper::ZDT_SHARED_DIR_NAME)
+            : $this->DocumentRoot;
 
+        return sprintf(
+            '%s/%s/.env',
+            rtrim($this->getFilesystemRoot(), '/'),
+            trim($envDirectory, '/')
+        );
+    }
 }
