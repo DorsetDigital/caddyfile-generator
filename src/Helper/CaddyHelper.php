@@ -57,11 +57,14 @@ class CaddyHelper
 
     public static function buildServerBlock(VirtualHost $site)
     {
+        if ($site->HostType === VirtualHost::HOST_TYPE_MANUAL) {
+            return $site->renderWith('Caddy/ManualHost')->forTemplate();
+        }
+
         $template = match ($site->HostType) {
             VirtualHost::HOST_TYPE_HOST => 'Caddy/Host',
             VirtualHost::HOST_TYPE_REDIRECT => 'Caddy/RedirectHost',
-            VirtualHost::HOST_TYPE_PROXY => 'Caddy/ProxyHost',
-            VirtualHost::HOST_TYPE_MANUAL => 'Caddy/ManualHost'
+            VirtualHost::HOST_TYPE_PROXY => 'Caddy/ProxyHost'
         };
 
         $serverBlock = $site->renderWith($template)->forTemplate();
@@ -146,7 +149,6 @@ class CaddyHelper
 
         $deployedKeyPath = rtrim($config->TLSFilesCaddyRoot, '/') . '/' . $deployedKeyName;
         $localKeyPath = rtrim($config->TLSFilesRoot, '/') . '/' . $deployedKeyName;
-
         if (($deployedKeyPath !== $site->DeployedKeyFile) || (!is_file($localKeyPath))) {
             Injector::inst()->get(LoggerInterface::class)->info('Private keys do not match or missing, writing new');
             Injector::inst()->get(LoggerInterface::class)->info('Local key path: ' . $localKeyPath);
