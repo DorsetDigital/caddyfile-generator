@@ -49,6 +49,7 @@ use UncleCheese\DisplayLogic\Forms\Wrapper;
  * @property int $HostType
  * @property bool $EnableHTTPS
  * @property bool $CacheAssets
+ * @property bool $AllowWordPressRoutes
  * @property int $TLSMethod
  * @property ?string $DocumentRoot
  * @property ?string $SiteProxy
@@ -128,6 +129,7 @@ class VirtualHost extends DataObject
         'HostType' => 'Int',
         'EnableHTTPS' => 'Boolean',
         'CacheAssets' => 'Boolean',
+        'AllowWordPressRoutes' => 'Boolean',
         'TLSMethod' => 'Int',
         'DocumentRoot' => 'Varchar',
         'SiteProxy' => 'Varchar',
@@ -175,6 +177,7 @@ class VirtualHost extends DataObject
     private static $defaults = [
         'EnableHTTPS' => true,
         'EnableZeroDowntime' => true,
+        'AllowWordPressRoutes' => false,
     ];
 
     private static $summary_fields = [
@@ -308,11 +311,6 @@ class VirtualHost extends DataObject
                 ->hideUnless('HostType')->isEqualTo(VirtualHost::HOST_TYPE_PROXY)->end()
         ]);
 
-        if (SiteConfig::current_site_config()->EnableWAF) {
-            $fields->insertAfter('HostName', CheckboxField::create('EnableWAF', 'Enable WAF')
-                ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end());
-        }
-
         if ($this->HostType == self::HOST_TYPE_HOST) {
             $fields->addFieldsToTab('Root.DatabaseAndEnvironment', [
                 DropdownField::create('DBCredentialsID', 'DB Credentials', DBCredentials::getUnassignedCredentials($this->ID))
@@ -353,12 +351,26 @@ class VirtualHost extends DataObject
             ]);
         }
 
-        $fields->addFieldsToTab('Root.Main', [
+        $securityFields = [
+            HeaderField::create('AccessControlSecurity', 'Access Control'),
             DropdownField::create('AuthCredentialsID', 'Auth Access Credentials', BasicAuthCreds::get()->map('ID', 'Title'))
                 ->setEmptyString('No auth required')
                 ->hideUnless('HostType')->isEqualTo(self::HOST_TYPE_HOST)
                 ->orIf('HostType')->isEqualTo(self::HOST_TYPE_PROXY)->end(),
-        ]);
+            HeaderField::create('WordPressSecurity', 'WordPress'),
+            CheckboxField::create('AllowWordPressRoutes', 'Allow WordPress routes')
+                ->setDescription('Allows requests to common WordPress paths including /wp-admin, /wp-login.php, /wp-content, /wp-includes and /xmlrpc.php. Leave disabled unless this host serves or proxies a WordPress site.')
+                ->hideUnless('HostType')->isEqualTo(self::HOST_TYPE_HOST)
+                ->orIf('HostType')->isEqualTo(self::HOST_TYPE_PROXY)->end(),
+        ];
+
+        if (SiteConfig::current_site_config()->EnableWAF) {
+            $securityFields[] = HeaderField::create('WAFSecurity', 'Web Application Firewall');
+            $securityFields[] = CheckboxField::create('EnableWAF', 'Enable WAF')
+                ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end();
+        }
+
+        $fields->addFieldsToTab('Root.Security', $securityFields);
 
         $fields->addFieldsToTab('Root.History', [
             HistoryViewerField::create('HistoryViewer', 'History Viewer')
