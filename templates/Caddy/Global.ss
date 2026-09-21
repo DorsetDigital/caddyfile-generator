@@ -18,9 +18,13 @@
     @wordpress path /wp-admin /wp-admin/* /wp-login.php /wp-login.php/* /wp-content/* /wp-includes/* /xmlrpc.php
     respond @wordpress 404
 }
+{
+    log default {
+        exclude http.log.access.access
+    }
 
-(access_logging) {
-    log {
+    log access {
+        include http.log.access.access
         output file /var/log/caddy/access.log {
             roll_size 100MiB
             roll_keep 3
@@ -28,8 +32,7 @@
         }
         format json
     }
-}
-{
+
 <% if $EnableWAF %>
     order coraza_waf first
 <% end_if %>
