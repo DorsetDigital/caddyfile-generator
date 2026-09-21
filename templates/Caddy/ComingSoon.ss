@@ -1,4 +1,5 @@
 $HostName<% if not $EnableHTTPS %>:80<% end_if %> {
+    import access_logging
 <% if $TemporaryNeedsTLSConfig %><% include Caddy\TLS %>
 <% end_if %>
 header x-hosting "BBP Advanced Hosting"
