@@ -20,7 +20,7 @@
 }
 {
     log default {
-        exclude http.log.access.access
+        exclude http.log.access
     }
 
     log access {
