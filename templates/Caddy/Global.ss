@@ -13,6 +13,11 @@
     header @assets Cache-Control "public, max-age=31536000, immutable"
     header @images Cache-Control "public, max-age=31536000, immutable"
 }
+
+(block_wordpress) {
+    @wordpress path /wp-admin /wp-admin/* /wp-login.php /wp-login.php/* /wp-content/* /wp-includes/* /xmlrpc.php
+    respond @wordpress 404
+}
 {
 <% if $EnableWAF %>
     order coraza_waf first
