@@ -115,7 +115,7 @@ class VirtualHost extends DataObject
     const SITE_MODE_PROD = 2;
     const CORAZA_CONFIG_FILENAME = 'coraza.conf';
     const CRS_CONFIG_FILENAME = 'crs.conf';
-    const WAF_EXCLUSIONS_CONFIG_FILENAME = 'exclusions.conf';
+    const CRS_OVERRIDES_CONFIG_FILENAME = 'crs-overrides.conf';
 
     const HOST_DIRECTORY_MAINTENANCE = '_maintenance';
     const HOST_DIRECTORY_COMINGSOON = '_comingsoon';
@@ -707,12 +707,12 @@ class VirtualHost extends DataObject
         return false;
     }
 
-    public function getWAFExclusionsConfigFile()
+    public function getCRSOverridesConfigFile()
     {
         $config = SiteConfig::current_site_config();
-        if ($config->WAFExclusionsConfigID > 0) {
+        if ($config->CRSOverridesConfigID > 0) {
             $configPath = ($config->WAFConfigCaddyPath) ? rtrim($config->WAFConfigCaddyPath, '/') . '/' : '';
-            return $configPath . self::WAF_EXCLUSIONS_CONFIG_FILENAME;
+            return $configPath . self::CRS_OVERRIDES_CONFIG_FILENAME;
         }
         return false;
     }
