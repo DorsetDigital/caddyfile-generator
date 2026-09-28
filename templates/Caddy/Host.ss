@@ -6,6 +6,8 @@ $CurrentHostName<% if not $EnableHTTPS %>:80<% end_if %> {
 <% end_if %>
 <% if $WAFEnabled %><% include Caddy\WAF %>
 <% end_if %>
+<% if $RateLimitEnabled %><% include Caddy\RateLimit %>
+<% end_if %>
 <% if $AuthCredentialsID > 0 %><% include Caddy\BasicAuth %>
 <% end_if %>
 <% if $RedirectRules %><% include Caddy\Redirects %>
