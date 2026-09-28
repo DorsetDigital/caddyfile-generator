@@ -20,12 +20,22 @@
 }
 {
     log default {
-        exclude http.log.access.access
+        exclude http.log.access http.handlers.waf
     }
 
     log access {
         include http.log.access.access
         output file /var/log/caddy/access.log {
+            roll_size 100MiB
+            roll_keep 3
+            roll_keep_for 24h
+        }
+        format json
+    }
+
+    log waf {
+        include http.handlers.waf
+        output file /var/log/caddy/waf.log {
             roll_size 100MiB
             roll_keep 3
             roll_keep_for 24h

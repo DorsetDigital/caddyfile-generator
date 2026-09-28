@@ -163,6 +163,9 @@ class DeploymentHelper
             if ($config->CoreRuleSetConfigID > 0) {
                 $bitbucketRes[] = $helper->commitFile($config->CoreRuleSetConfig()->getString(), '/waf/' . VirtualHost::CRS_CONFIG_FILENAME)->getMessage();
             }
+            if ($config->CRSOverridesConfigID > 0) {
+                $bitbucketRes[] = $helper->commitFile($config->CRSOverridesConfig()->getString(), '/waf/' . VirtualHost::CRS_OVERRIDES_CONFIG_FILENAME)->getMessage();
+            }
         }
 
         $prRes = $helper->createPR()->getMessage();
