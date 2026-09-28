@@ -5,6 +5,6 @@ rate_limit {
         }
         key {remote_host}
         events $RateLimitEffectiveEvents
-        window {$RateLimitEffectiveWindow}s
+        window $RateLimitWindowDuration
     }
 }
