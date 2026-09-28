@@ -385,19 +385,21 @@ class VirtualHost extends DataObject
             ),
             self::RATE_LIMIT_ENABLED => 'Enabled',
             self::RATE_LIMIT_DISABLED => 'Disabled',
-        ]);
+        ])->hideUnless('HostType')->isEqualTo(self::HOST_TYPE_HOST)->end();
         $securityFields[] = NumericField::create('RateLimitEvents', 'Maximum requests')
             ->setDescription(sprintf(
                 'Leave blank to use global value: %d',
                 (int) $rateLimitConfig->RateLimitEvents
             ))
-            ->setScale(0);
+            ->setScale(0)
+            ->hideUnless('HostType')->isEqualTo(self::HOST_TYPE_HOST)->end();
         $securityFields[] = NumericField::create('RateLimitWindow', 'Window (seconds)')
             ->setDescription(sprintf(
                 'Leave blank to use global value: %d seconds',
                 (int) $rateLimitConfig->RateLimitWindow
             ))
-            ->setScale(0);
+            ->setScale(0)
+            ->hideUnless('HostType')->isEqualTo(self::HOST_TYPE_HOST)->end();
 
         if (SiteConfig::current_site_config()->EnableWAF) {
             $securityFields[] = HeaderField::create('WAFSecurity', 'Web Application Firewall');
@@ -729,7 +731,8 @@ class VirtualHost extends DataObject
         if ((int) $this->RateLimitEvents > 0) {
             return (int) $this->RateLimitEvents;
         }
-        return (int) SiteConfig::current_site_config()->RateLimitEvents;
+        $global = (int) SiteConfig::current_site_config()->RateLimitEvents;
+        return $global > 0 ? $global : 50;
     }
 
     public function getRateLimitEffectiveWindow()
@@ -737,7 +740,13 @@ class VirtualHost extends DataObject
         if ((int) $this->RateLimitWindow > 0) {
             return (int) $this->RateLimitWindow;
         }
-        return (int) SiteConfig::current_site_config()->RateLimitWindow;
+        $global = (int) SiteConfig::current_site_config()->RateLimitWindow;
+        return $global > 0 ? $global : 10;
+    }
+
+    public function getRateLimitWindowDuration()
+    {
+        return $this->getRateLimitEffectiveWindow() . 's';
     }
 
     public function getRateLimitZoneName()
