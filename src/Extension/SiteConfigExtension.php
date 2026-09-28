@@ -151,6 +151,12 @@ class SiteConfigExtension extends Extension
         if ($this->owner->RedisKeyPrefix == '') {
             $this->owner->RedisKeyPrefix = 'caddy:' . $this->generateRandomString(8);
         }
+        if ((int) $this->owner->RateLimitEvents < 1) {
+            $this->owner->RateLimitEvents = 50;
+        }
+        if ((int) $this->owner->RateLimitWindow < 1) {
+            $this->owner->RateLimitWindow = 10;
+        }
     }
 
     private function generateRandomString($length)
