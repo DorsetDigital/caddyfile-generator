@@ -36,6 +36,9 @@ use src\Model\Filesystem;
  * @property ?string $ConfigURL
  * @property bool $EnableWAF
  * @property bool $IncludeOWASPRules
+ * @property bool $EnableRateLimit
+ * @property int $RateLimitEvents
+ * @property int $RateLimitWindow
  * @property ?string $WAFConfigCaddyPath
  * @property int $CorazaConfigID
  * @property int $CoreRuleSetConfigID
@@ -59,6 +62,15 @@ class SiteConfigExtension extends Extension
         'EnableWAF' => 'Boolean',
         'IncludeOWASPRules' => 'Boolean',
         'WAFConfigCaddyPath' => 'Varchar',
+        'EnableRateLimit' => 'Boolean',
+        'RateLimitEvents' => 'Int',
+        'RateLimitWindow' => 'Int',
+    ];
+
+    private static $defaults = [
+        'EnableRateLimit' => false,
+        'RateLimitEvents' => 50,
+        'RateLimitWindow' => 10,
     ];
 
     private static $has_one = [
@@ -111,6 +123,14 @@ class SiteConfigExtension extends Extension
             CheckboxField::create('IncludeOWASPRules', 'Include OWASP rules'),
             TextField::create('WAFConfigCaddyPath')
                 ->setDescription('WAF config files path inside a Caddy instance'),
+            HeaderField::create('RateLimitConfig', 'Rate Limiting'),
+            CheckboxField::create('EnableRateLimit', 'Enable rate limiting by default'),
+            NumericField::create('RateLimitEvents', 'Default maximum requests')
+                ->setDescription('Maximum matching requests per client IP during the configured window, per Caddy node')
+                ->setScale(0),
+            NumericField::create('RateLimitWindow', 'Default window (seconds)')
+                ->setDescription('Sliding window used for the default rate limit')
+                ->setScale(0),
         ]);
 
         $fields->addFieldsToTab('Root.PHPBackends', [
@@ -130,6 +150,12 @@ class SiteConfigExtension extends Extension
     {
         if ($this->owner->RedisKeyPrefix == '') {
             $this->owner->RedisKeyPrefix = 'caddy:' . $this->generateRandomString(8);
+        }
+        if ((int) $this->owner->RateLimitEvents < 1) {
+            $this->owner->RateLimitEvents = 50;
+        }
+        if ((int) $this->owner->RateLimitWindow < 1) {
+            $this->owner->RateLimitWindow = 10;
         }
     }
 

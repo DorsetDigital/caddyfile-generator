@@ -23,6 +23,7 @@ use SilverStripe\Forms\GridField\GridFieldDeleteAction;
 use SilverStripe\Forms\GridField\GridFieldToolbarHeader;
 use SilverStripe\Forms\HeaderField;
 use SilverStripe\Forms\LiteralField;
+use SilverStripe\Forms\NumericField;
 use SilverStripe\Forms\TextareaField;
 use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\DataList;
@@ -62,6 +63,9 @@ use UncleCheese\DisplayLogic\Forms\Wrapper;
  * @property ?string $DeployedCertificateFile
  * @property ?string $UpstreamHostHeader
  * @property bool $EnableWAF
+ * @property int $RateLimitMode
+ * @property int $RateLimitEvents
+ * @property int $RateLimitWindow
  * @property bool $RemoveForwardedHeader
  * @property bool $RedirectPaths
  * @property bool $RedirectPermanent
@@ -113,6 +117,9 @@ class VirtualHost extends DataObject
     const SITE_MODE_COMING = 0;
     const SITE_MODE_MAINTENANCE = 1;
     const SITE_MODE_PROD = 2;
+    const RATE_LIMIT_INHERIT = 0;
+    const RATE_LIMIT_ENABLED = 1;
+    const RATE_LIMIT_DISABLED = 2;
     const CORAZA_CONFIG_FILENAME = 'coraza.conf';
     const CRS_CONFIG_FILENAME = 'crs.conf';
     const CRS_OVERRIDES_CONFIG_FILENAME = 'crs-overrides.conf';
@@ -143,6 +150,9 @@ class VirtualHost extends DataObject
         'DeployedCertificateFile' => 'Varchar',
         'UpstreamHostHeader' => 'Varchar',
         'EnableWAF' => 'Boolean',
+        'RateLimitMode' => 'Int',
+        'RateLimitEvents' => 'Int',
+        'RateLimitWindow' => 'Int',
         'RemoveForwardedHeader' => 'Boolean',
         'RedirectPaths' => 'Boolean',
         'RedirectPermanent' => 'Boolean',
@@ -179,6 +189,7 @@ class VirtualHost extends DataObject
         'EnableHTTPS' => true,
         'EnableZeroDowntime' => true,
         'AllowWordPressRoutes' => false,
+        'RateLimitMode' => self::RATE_LIMIT_INHERIT,
     ];
 
     private static $summary_fields = [
@@ -364,6 +375,31 @@ class VirtualHost extends DataObject
                 ->hideUnless('HostType')->isEqualTo(self::HOST_TYPE_HOST)
                 ->orIf('HostType')->isEqualTo(self::HOST_TYPE_PROXY)->end(),
         ];
+
+        $rateLimitConfig = SiteConfig::current_site_config();
+        $securityFields[] = HeaderField::create('RateLimitSecurity', 'Rate Limiting');
+        $securityFields[] = DropdownField::create('RateLimitMode', 'Rate limiting', [
+            self::RATE_LIMIT_INHERIT => sprintf(
+                'Use global setting (%s)',
+                $rateLimitConfig->EnableRateLimit ? 'enabled' : 'disabled'
+            ),
+            self::RATE_LIMIT_ENABLED => 'Enabled',
+            self::RATE_LIMIT_DISABLED => 'Disabled',
+        ])->hideUnless('HostType')->isEqualTo(self::HOST_TYPE_HOST)->end();
+        $securityFields[] = NumericField::create('RateLimitEvents', 'Maximum requests')
+            ->setDescription(sprintf(
+                'Leave blank to use global value: %d',
+                (int) $rateLimitConfig->RateLimitEvents
+            ))
+            ->setScale(0)
+            ->hideUnless('HostType')->isEqualTo(self::HOST_TYPE_HOST)->end();
+        $securityFields[] = NumericField::create('RateLimitWindow', 'Window (seconds)')
+            ->setDescription(sprintf(
+                'Leave blank to use global value: %d seconds',
+                (int) $rateLimitConfig->RateLimitWindow
+            ))
+            ->setScale(0)
+            ->hideUnless('HostType')->isEqualTo(self::HOST_TYPE_HOST)->end();
 
         if (SiteConfig::current_site_config()->EnableWAF) {
             $securityFields[] = HeaderField::create('WAFSecurity', 'Web Application Firewall');
@@ -679,6 +715,43 @@ class VirtualHost extends DataObject
             return false;
         }
         return $this->TLSMethod !== self::TLS_AUTO;
+    }
+
+    public function getRateLimitEnabled()
+    {
+        return match ((int) $this->RateLimitMode) {
+            self::RATE_LIMIT_ENABLED => true,
+            self::RATE_LIMIT_DISABLED => false,
+            default => (bool) SiteConfig::current_site_config()->EnableRateLimit,
+        };
+    }
+
+    public function getRateLimitEffectiveEvents()
+    {
+        if ((int) $this->RateLimitEvents > 0) {
+            return (int) $this->RateLimitEvents;
+        }
+        $global = (int) SiteConfig::current_site_config()->RateLimitEvents;
+        return $global > 0 ? $global : 50;
+    }
+
+    public function getRateLimitEffectiveWindow()
+    {
+        if ((int) $this->RateLimitWindow > 0) {
+            return (int) $this->RateLimitWindow;
+        }
+        $global = (int) SiteConfig::current_site_config()->RateLimitWindow;
+        return $global > 0 ? $global : 10;
+    }
+
+    public function getRateLimitWindowDuration()
+    {
+        return $this->getRateLimitEffectiveWindow() . 's';
+    }
+
+    public function getRateLimitZoneName()
+    {
+        return 'dynamic_host_' . (int) $this->ID;
     }
 
     public function getWAFEnabled()
