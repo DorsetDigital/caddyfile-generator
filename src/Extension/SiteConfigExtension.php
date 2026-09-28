@@ -64,12 +64,12 @@ class SiteConfigExtension extends Extension
     private static $has_one = [
         'CorazaConfig' => File::class,
         'CoreRuleSetConfig' => File::class,
-        'WAFExclusionsConfig' => File::class
+        'CRSOverridesConfig' => File::class
     ];
     private static $owns = [
         'CorazaConfig',
         'CoreRuleSetConfig',
-        'WAFExclusionsConfig'
+        'CRSOverridesConfig'
     ];
 
     public function updateCMSFields(FieldList $fields)
@@ -105,7 +105,7 @@ class SiteConfigExtension extends Extension
                 ->setFolderName('WAF'),
             UploadField::create('CoreRuleSetConfig', 'Core rule set configuration')
                 ->setFolderName('WAF'),
-            UploadField::create('WAFExclusionsConfig', 'WAF exclusions configuration')
+            UploadField::create('CRSOverridesConfig', 'CRS overrides configuration')
                 ->setFolderName('WAF')
                 ->setDescription('Loaded after the OWASP CRS rules for global false-positive exclusions and rule tuning'),
             CheckboxField::create('IncludeOWASPRules', 'Include OWASP rules'),
