@@ -43,6 +43,17 @@
         format json
     }
 
+    log errors {
+        level ERROR
+        exclude http.log.access http.handlers.waf
+        output file /var/log/caddy/error.log {
+            roll_size 100MiB
+            roll_keep 3
+            roll_keep_for 24h
+        }
+        format json
+    }
+
 <% if $EnableWAF %>
     order coraza_waf first
 <% end_if %>
