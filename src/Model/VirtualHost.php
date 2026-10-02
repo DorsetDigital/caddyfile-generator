@@ -829,7 +829,7 @@ class VirtualHost extends DataObject
             return false;
         }
 
-        return (bool) preg_match("~^/[A-Za-z0-9._~!\\$&'()+,;=:@%/-]*$~", $path);
+        return (bool) preg_match('#^/[A-Za-z0-9._~!        return (bool) preg_match("~^/[A-Za-z0-9._~!\\$&'()+,;=:@%/-]*$~", $path);()+,;=:@%/-]*$#', $path);
     }
 
     public function getRateLimitEnabled()
