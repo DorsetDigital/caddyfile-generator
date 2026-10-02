@@ -394,6 +394,7 @@ class VirtualHost extends DataObject
                 ->orIf('HostType')->isEqualTo(self::HOST_TYPE_PROXY)->end();
 
             $securityFields[] = TextareaField::create('GatekeeperProtectedPaths', 'Protected paths')
+                ->setValue($this->GatekeeperProtectedPaths ?: "/admin\n/Security")
                 ->setRows(5)
                 ->setDescription('One root-relative path per line. Subpaths are protected automatically; for example /admin also protects /admin/*. Raw Caddy matchers and wildcards are not accepted.')
                 ->hideUnless('EnableGatekeeper')->isChecked()->end();
