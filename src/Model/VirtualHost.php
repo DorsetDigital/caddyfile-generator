@@ -66,6 +66,8 @@ use UncleCheese\DisplayLogic\Forms\Wrapper;
  * @property int $RateLimitMode
  * @property int $RateLimitEvents
  * @property int $RateLimitWindow
+ * @property bool $EnableGatekeeper
+ * @property ?string $GatekeeperProtectedPaths
  * @property bool $RemoveForwardedHeader
  * @property bool $RedirectPaths
  * @property bool $RedirectPermanent
@@ -93,6 +95,7 @@ use UncleCheese\DisplayLogic\Forms\Wrapper;
  * @method \src\Model\Filesystem Filesystem()
  * @method \SilverStripe\ORM\DataList|\DorsetDigital\Caddy\Model\RedirectRule[] RedirectRules()
  * @method \SilverStripe\ORM\DataList|\DorsetDigital\Caddy\Model\ENVVar[] ENVVars()
+ * @method \SilverStripe\ORM\DataList|\DorsetDigital\Caddy\Model\GatekeeperAccessRule[] GatekeeperAccessRules()
  * @mixin \SilverStripe\Admin\CMSEditLinkExtension
  * @mixin \SilverStripe\Assets\AssetControlExtension
  * @mixin \SilverStripe\Assets\Shortcodes\FileLinkTracking
@@ -153,6 +156,8 @@ class VirtualHost extends DataObject
         'RateLimitMode' => 'Int',
         'RateLimitEvents' => 'Int',
         'RateLimitWindow' => 'Int',
+        'EnableGatekeeper' => 'Boolean',
+        'GatekeeperProtectedPaths' => 'Text',
         'RemoveForwardedHeader' => 'Boolean',
         'RedirectPaths' => 'Boolean',
         'RedirectPermanent' => 'Boolean',
@@ -178,6 +183,7 @@ class VirtualHost extends DataObject
     private static $has_many = [
         'RedirectRules' => RedirectRule::class,
         'ENVVars' => ENVVar::class,
+        'GatekeeperAccessRules' => GatekeeperAccessRule::class,
     ];
 
     private static $owns = [
@@ -190,6 +196,8 @@ class VirtualHost extends DataObject
         'EnableZeroDowntime' => true,
         'AllowWordPressRoutes' => false,
         'RateLimitMode' => self::RATE_LIMIT_INHERIT,
+        'EnableGatekeeper' => false,
+        'GatekeeperProtectedPaths' => "/admin\n/Security",
     ];
 
     private static $summary_fields = [
@@ -204,6 +212,7 @@ class VirtualHost extends DataObject
         'TLSKey',
         'TLSCert',
         'RedirectRules',
+        'GatekeeperAccessRules',
     ];
 
     private static $default_sort = 'Title';
@@ -231,7 +240,7 @@ class VirtualHost extends DataObject
         $fields->removeByName([
             'TLSKey', 'TLSCert', 'SSLCertificateID', 'AuthCredentialsID', 'RedirectRules',
             'UptimeMonitorID', 'PHPBackendID', 'DBCredentialsID', 'ENVVars', 'ENVSignature',
-            'FilesystemID'
+            'FilesystemID', 'GatekeeperAccessRules'
         ]);
 
         $absoluteRoot = '';
@@ -375,6 +384,29 @@ class VirtualHost extends DataObject
                 ->hideUnless('HostType')->isEqualTo(self::HOST_TYPE_HOST)
                 ->orIf('HostType')->isEqualTo(self::HOST_TYPE_PROXY)->end(),
         ];
+
+        $gatekeeperConfig = SiteConfig::current_site_config();
+        if ($gatekeeperConfig->EnableGatekeeper) {
+            $securityFields[] = HeaderField::create('GatekeeperSecurity', 'Gatekeeper');
+            $securityFields[] = CheckboxField::create('EnableGatekeeper', 'Protect selected paths with Gatekeeper')
+                ->setDescription('Adds Gatekeeper authentication in front of the configured paths. Supported on standard and proxy hosts.')
+                ->hideUnless('HostType')->isEqualTo(self::HOST_TYPE_HOST)
+                ->orIf('HostType')->isEqualTo(self::HOST_TYPE_PROXY)->end();
+
+            $securityFields[] = TextareaField::create('GatekeeperProtectedPaths', 'Protected paths')
+                ->setRows(5)
+                ->setDescription('One root-relative path per line. Subpaths are protected automatically; for example /admin also protects /admin/*. Raw Caddy matchers and wildcards are not accepted.')
+                ->hideUnless('EnableGatekeeper')->isChecked()->end();
+
+            $gatekeeperRules = GridField::create(
+                'GatekeeperAccessRules',
+                'Authorised email addresses and domains',
+                $this->GatekeeperAccessRules(),
+                GridFieldConfig_RecordEditor::create()
+            );
+            $securityFields[] = Wrapper::create($gatekeeperRules)
+                ->displayIf('EnableGatekeeper')->isChecked()->end();
+        }
 
         $rateLimitConfig = SiteConfig::current_site_config();
         $securityFields[] = HeaderField::create('RateLimitSecurity', 'Rate Limiting');
@@ -522,6 +554,10 @@ class VirtualHost extends DataObject
         }
         if ($this->DocumentRootSuffix) {
             $this->DocumentRootSuffix = trim($this->DocumentRootSuffix, '/ ');
+        }
+
+        if ($this->GatekeeperProtectedPaths) {
+            $this->GatekeeperProtectedPaths = implode("\n", $this->getGatekeeperProtectedPathList());
         }
     }
 
@@ -672,6 +708,25 @@ class VirtualHost extends DataObject
             $result->addError("Please select a PHP version to use");
         }
 
+        if ($this->EnableGatekeeper) {
+            if (!in_array((int) $this->HostType, [self::HOST_TYPE_HOST, self::HOST_TYPE_PROXY], true)) {
+                $result->addError('Gatekeeper can only be enabled for standard or proxy hosts.');
+            }
+            if ($this->AuthCredentialsID > 0) {
+                $result->addError('Gatekeeper and Basic Auth cannot both be enabled on the same host.');
+            }
+
+            $paths = $this->getGatekeeperProtectedPathList();
+            if (count($paths) < 1) {
+                $result->addError('At least one Gatekeeper protected path is required.');
+            }
+            foreach ($paths as $path) {
+                if (!$this->isValidGatekeeperProtectedPath($path)) {
+                    $result->addError(sprintf('Invalid Gatekeeper protected path: %s', $path));
+                }
+            }
+        }
+
         return $result;
     }
 
@@ -715,6 +770,66 @@ class VirtualHost extends DataObject
             return false;
         }
         return $this->TLSMethod !== self::TLS_AUTO;
+    }
+
+    public function getGatekeeperEnabled()
+    {
+        $config = SiteConfig::current_site_config();
+        return (bool) $config->EnableGatekeeper
+            && (bool) $this->EnableGatekeeper
+            && in_array((int) $this->HostType, [self::HOST_TYPE_HOST, self::HOST_TYPE_PROXY], true);
+    }
+
+    public function getGatekeeperAuthUpstream()
+    {
+        $upstream = trim((string) SiteConfig::current_site_config()->GatekeeperAuthUpstream);
+        return $upstream ?: '127.0.0.1:9080';
+    }
+
+    public function getGatekeeperProtectedPathList()
+    {
+        $lines = preg_split('/\R/', (string) $this->GatekeeperProtectedPaths) ?: [];
+        $paths = [];
+
+        foreach ($lines as $line) {
+            $path = trim($line);
+            if ($path === '') {
+                continue;
+            }
+            if ($path !== '/') {
+                $path = rtrim($path, '/');
+            }
+            $paths[$path] = $path;
+        }
+
+        return array_values($paths);
+    }
+
+    public function getGatekeeperPathMatcher()
+    {
+        $matches = [];
+        foreach ($this->getGatekeeperProtectedPathList() as $path) {
+            $matches[] = $path;
+            $matches[] = $path === '/' ? '/*' : $path . '/*';
+        }
+
+        return implode(' ', array_values(array_unique($matches)));
+    }
+
+    private function isValidGatekeeperProtectedPath(string $path): bool
+    {
+        if (!str_starts_with($path, '/')) {
+            return false;
+        }
+        if (str_starts_with(strtolower($path), '/.gatekeeper')) {
+            return false;
+        }
+        if (preg_match('/[\s*{}?#]/', $path)) {
+            return false;
+        }
+
+        return (bool) preg_match("~^/[A-Za-z0-9._~!    public function getRateLimitEnabled()
+    {'()+,;=:@%/-]*$~", $path);
     }
 
     public function getRateLimitEnabled()
