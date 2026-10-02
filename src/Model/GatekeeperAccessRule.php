@@ -84,7 +84,7 @@ class GatekeeperAccessRule extends DataObject
         if (
             !str_contains($value, '.')
             || str_contains($value, '@')
-            || preg_match('~[\s/\\:]~', $value)
+            || preg_match('~[\s/\\\\:]~', $value)
         ) {
             $result->addError('Please enter a valid email domain.');
         }
