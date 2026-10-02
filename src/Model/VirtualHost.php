@@ -825,11 +825,14 @@ class VirtualHost extends DataObject
         if (str_starts_with(strtolower($path), '/.gatekeeper')) {
             return false;
         }
-        if (preg_match('/[\s*{}?#]/', $path)) {
+        if (preg_match('/[\\s*{}?#]/', $path)) {
             return false;
         }
 
-        return (bool) preg_match("~^/[A-Za-z0-9._~!    public function getRateLimitEnabled()
+        return (bool) preg_match("~^/[A-Za-z0-9._~!\\$&'()+,;=:@%/-]*$~", $path);
+    }
+
+    public function getRateLimitEnabled()
     {'()+,;=:@%/-]*$~", $path);
     }
 
