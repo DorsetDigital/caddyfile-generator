@@ -385,30 +385,6 @@ class VirtualHost extends DataObject
                 ->orIf('HostType')->isEqualTo(self::HOST_TYPE_PROXY)->end(),
         ];
 
-        $gatekeeperConfig = SiteConfig::current_site_config();
-        if ($gatekeeperConfig->EnableGatekeeper) {
-            $securityFields[] = HeaderField::create('GatekeeperSecurity', 'Gatekeeper');
-            $securityFields[] = CheckboxField::create('EnableGatekeeper', 'Protect selected paths with Gatekeeper')
-                ->setDescription('Adds Gatekeeper authentication in front of the configured paths. Supported on standard and proxy hosts.')
-                ->hideUnless('HostType')->isEqualTo(self::HOST_TYPE_HOST)
-                ->orIf('HostType')->isEqualTo(self::HOST_TYPE_PROXY)->end();
-
-            $securityFields[] = TextareaField::create('GatekeeperProtectedPaths', 'Protected paths')
-                ->setValue($this->GatekeeperProtectedPaths ?: "/admin\n/Security")
-                ->setRows(5)
-                ->setDescription('One root-relative path per line. Subpaths are protected automatically; for example /admin also protects /admin/*. Raw Caddy matchers and wildcards are not accepted.')
-                ->hideUnless('EnableGatekeeper')->isChecked()->end();
-
-            $gatekeeperRules = GridField::create(
-                'GatekeeperAccessRules',
-                'Authorised email addresses and domains',
-                $this->GatekeeperAccessRules(),
-                GridFieldConfig_RecordEditor::create()
-            );
-            $securityFields[] = Wrapper::create($gatekeeperRules)
-                ->displayIf('EnableGatekeeper')->isChecked()->end();
-        }
-
         $rateLimitConfig = SiteConfig::current_site_config();
         $securityFields[] = HeaderField::create('RateLimitSecurity', 'Rate Limiting');
         $securityFields[] = DropdownField::create('RateLimitMode', 'Rate limiting', [
@@ -441,6 +417,32 @@ class VirtualHost extends DataObject
         }
 
         $fields->addFieldsToTab('Root.Security', $securityFields);
+
+        $gatekeeperConfig = SiteConfig::current_site_config();
+        if ($gatekeeperConfig->EnableGatekeeper) {
+            $gatekeeperFields = [
+                CheckboxField::create('EnableGatekeeper', 'Protect selected paths with Gatekeeper')
+                    ->setDescription('Adds Gatekeeper authentication in front of the configured paths. Supported on standard and proxy hosts.')
+                    ->hideUnless('HostType')->isEqualTo(self::HOST_TYPE_HOST)
+                    ->orIf('HostType')->isEqualTo(self::HOST_TYPE_PROXY)->end(),
+                TextareaField::create('GatekeeperProtectedPaths', 'Protected paths')
+                    ->setValue($this->GatekeeperProtectedPaths ?: "/admin\n/Security")
+                    ->setRows(5)
+                    ->setDescription('One root-relative path per line. Subpaths are protected automatically; for example /admin also protects /admin/*. Raw Caddy matchers and wildcards are not accepted.')
+                    ->hideUnless('EnableGatekeeper')->isChecked()->end(),
+            ];
+
+            $gatekeeperRules = GridField::create(
+                'GatekeeperAccessRules',
+                'Authorised email addresses and domains',
+                $this->GatekeeperAccessRules(),
+                GridFieldConfig_RecordEditor::create()
+            );
+            $gatekeeperFields[] = Wrapper::create($gatekeeperRules)
+                ->displayIf('EnableGatekeeper')->isChecked()->end();
+
+            $fields->addFieldsToTab('Root.Gatekeeper', $gatekeeperFields);
+        }
 
         $fields->addFieldsToTab('Root.History', [
             HistoryViewerField::create('HistoryViewer', 'History Viewer')
