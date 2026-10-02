@@ -833,10 +833,6 @@ class VirtualHost extends DataObject
     }
 
     public function getRateLimitEnabled()
-    {'()+,;=:@%/-]*$~", $path);
-    }
-
-    public function getRateLimitEnabled()
     {
         return match ((int) $this->RateLimitMode) {
             self::RATE_LIMIT_ENABLED => true,
