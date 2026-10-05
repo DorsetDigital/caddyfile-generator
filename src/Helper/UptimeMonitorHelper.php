@@ -266,7 +266,11 @@ class UptimeMonitorHelper
         return array_merge(
             [
                 'name' => $site->Title ?: $site->HostName,
-                'url' => $site->getBaseURL(),
+                'url' => sprintf(
+                    '%s://%s',
+                    $site->EnableHTTPS ? 'https' : 'http',
+                    $site->HostName
+                ),
                 'enabled' => true,
             ],
             $site->getUptimeMonitorConfig()
