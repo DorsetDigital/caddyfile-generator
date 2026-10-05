@@ -19,17 +19,6 @@ class FarpointClient implements UptimeClientInterface
 
     private static string $base_url = 'https://farpoint.ddweb.workers.dev/api/v1/';
 
-    private static array $default_monitor_options = [
-        'interval_seconds' => 60,
-        'failure_confirmation_checks' => 2,
-        'recovery_confirmation_checks' => 2,
-        'degraded' => [
-            'enabled' => true,
-            'threshold_ms' => 3000,
-            'confirmation_checks' => 2,
-        ],
-    ];
-
     private Client $client;
     private string $apiKey;
 
@@ -53,9 +42,9 @@ class FarpointClient implements UptimeClientInterface
         ]);
     }
 
-    public function createMonitor($name, $url)
+    public function createMonitor($name, $url, array $options = [])
     {
-        $payload = $this->config()->get('default_monitor_options');
+        $payload = $options;
         $payload['name'] = $name ?: $url;
         $payload['url'] = $url;
 
@@ -88,11 +77,6 @@ class FarpointClient implements UptimeClientInterface
     {
         $response = $this->doRequest('GET', 'monitors');
         return $response['monitors'] ?? [];
-    }
-
-    public function getDefaultMonitorOptions(): array
-    {
-        return $this->config()->get('default_monitor_options');
     }
 
     public function getDashboard(array $query = [])
