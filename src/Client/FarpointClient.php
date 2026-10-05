@@ -84,6 +84,17 @@ class FarpointClient implements UptimeClientInterface
         );
     }
 
+    public function listMonitors()
+    {
+        $response = $this->doRequest('GET', 'monitors');
+        return $response['monitors'] ?? [];
+    }
+
+    public function getDefaultMonitorOptions(): array
+    {
+        return $this->config()->get('default_monitor_options');
+    }
+
     public function getDashboard(array $query = [])
     {
         $endpoint = 'dashboard';
