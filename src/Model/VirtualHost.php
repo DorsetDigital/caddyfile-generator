@@ -442,48 +442,69 @@ class VirtualHost extends DataObject
                 ->andIf('UptimeMonitorDegradedEnabled')->isChecked()->end(),
         ]);
 
+        $hostType = (int) $this->HostType;
+        $isStandardHost = $hostType === self::HOST_TYPE_HOST;
+        $supportsAccessControl = in_array(
+            $hostType,
+            [self::HOST_TYPE_HOST, self::HOST_TYPE_PROXY],
+            true
+        );
+
         $securityFields = [
             HeaderField::create('AccessControlSecurity', 'Access Control'),
-            DropdownField::create('AuthCredentialsID', 'Auth Access Credentials', BasicAuthCreds::get()->map('ID', 'Title'))
-                ->setEmptyString('No auth required')
-                ->hideUnless('HostType')->isEqualTo(self::HOST_TYPE_HOST)
-                ->orIf('HostType')->isEqualTo(self::HOST_TYPE_PROXY)->end(),
-            HeaderField::create('WordPressSecurity', 'WordPress'),
-            CheckboxField::create('AllowWordPressRoutes', 'Allow WordPress routes')
-                ->setDescription('Allows requests to common WordPress paths including /wp-admin, /wp-login.php, /wp-content, /wp-includes and /xmlrpc.php. Leave disabled unless this host serves or proxies a WordPress site.')
-                ->hideUnless('HostType')->isEqualTo(self::HOST_TYPE_HOST)
-                ->orIf('HostType')->isEqualTo(self::HOST_TYPE_PROXY)->end(),
         ];
+
+        if ($supportsAccessControl) {
+            $securityFields[] = DropdownField::create(
+                'AuthCredentialsID',
+                'Auth Access Credentials',
+                BasicAuthCreds::get()->map('ID', 'Title')
+            )->setEmptyString('No auth required');
+        }
+
+        $securityFields[] = HeaderField::create('WordPressSecurity', 'WordPress');
+
+        if ($supportsAccessControl) {
+            $securityFields[] = CheckboxField::create(
+                'AllowWordPressRoutes',
+                'Allow WordPress routes'
+            )->setDescription(
+                'Allows requests to common WordPress paths including /wp-admin, /wp-login.php, /wp-content, /wp-includes and /xmlrpc.php. Leave disabled unless this host serves or proxies a WordPress site.'
+            );
+        }
 
         $rateLimitConfig = SiteConfig::current_site_config();
         $securityFields[] = HeaderField::create('RateLimitSecurity', 'Rate Limiting');
-        $securityFields[] = DropdownField::create('RateLimitMode', 'Rate limiting', [
-            self::RATE_LIMIT_INHERIT => sprintf(
-                'Use global setting (%s)',
-                $rateLimitConfig->EnableRateLimit ? 'enabled' : 'disabled'
-            ),
-            self::RATE_LIMIT_ENABLED => 'Enabled',
-            self::RATE_LIMIT_DISABLED => 'Disabled',
-        ])->hideUnless('HostType')->isEqualTo(self::HOST_TYPE_HOST)->end();
-        $securityFields[] = NumericField::create('RateLimitEvents', 'Maximum requests')
-            ->setDescription(sprintf(
-                'Leave blank to use global value: %d',
-                (int) $rateLimitConfig->RateLimitEvents
-            ))
-            ->setScale(0)
-            ->hideUnless('HostType')->isEqualTo(self::HOST_TYPE_HOST)->end();
-        $securityFields[] = NumericField::create('RateLimitWindow', 'Window (seconds)')
-            ->setDescription(sprintf(
-                'Leave blank to use global value: %d seconds',
-                (int) $rateLimitConfig->RateLimitWindow
-            ))
-            ->setScale(0)
-            ->hideUnless('HostType')->isEqualTo(self::HOST_TYPE_HOST)->end();
+
+        if ($isStandardHost) {
+            $securityFields[] = DropdownField::create('RateLimitMode', 'Rate limiting', [
+                self::RATE_LIMIT_INHERIT => sprintf(
+                    'Use global setting (%s)',
+                    $rateLimitConfig->EnableRateLimit ? 'enabled' : 'disabled'
+                ),
+                self::RATE_LIMIT_ENABLED => 'Enabled',
+                self::RATE_LIMIT_DISABLED => 'Disabled',
+            ]);
+            $securityFields[] = NumericField::create('RateLimitEvents', 'Maximum requests')
+                ->setDescription(sprintf(
+                    'Leave blank to use global value: %d',
+                    (int) $rateLimitConfig->RateLimitEvents
+                ))
+                ->setScale(0);
+            $securityFields[] = NumericField::create('RateLimitWindow', 'Window (seconds)')
+                ->setDescription(sprintf(
+                    'Leave blank to use global value: %d seconds',
+                    (int) $rateLimitConfig->RateLimitWindow
+                ))
+                ->setScale(0);
+        }
 
         if (SiteConfig::current_site_config()->EnableWAF) {
             $securityFields[] = HeaderField::create('WAFSecurity', 'Web Application Firewall');
-            $securityFields[] = CheckboxField::create('EnableWAF', 'Enable WAF')
-                ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end();
+
+            if ($hostType !== self::HOST_TYPE_MANUAL) {
+                $securityFields[] = CheckboxField::create('EnableWAF', 'Enable WAF');
+            }
         }
 
         $fields->addFieldsToTab('Root.Security', $securityFields);
