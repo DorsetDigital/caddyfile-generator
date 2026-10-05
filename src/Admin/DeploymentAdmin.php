@@ -3,6 +3,7 @@
 namespace DorsetDigital\Caddy\Admin;
 
 use DorsetDigital\Caddy\Helper\DeploymentHelper;
+use DorsetDigital\Caddy\Helper\UptimeMonitorHelper;
 use Exception;
 use Psr\Log\LoggerInterface;
 use SilverStripe\Admin\LeftAndMain;
@@ -28,12 +29,14 @@ class DeploymentAdmin extends LeftAndMain
     private static $required_permission_codes = 'ADMIN';
 
     private static $allowed_actions = [
-        'runProcess'
+        'runProcess',
+        'syncFarpoint',
     ];
 
     public function getEditForm($id = null, $fields = null)
     {
         $runUrl = $this->Link('runProcess');
+        $syncFarpointUrl = $this->Link('syncFarpoint');
 
         $fields = FieldList::create(
             HeaderField::create('Build the Caddy configuration'),
@@ -54,10 +57,17 @@ class DeploymentAdmin extends LeftAndMain
             'type' => 'button',
         ], 'Build and push configuration (Dry Run)');
 
+        $syncButton = HTML::createTag('button', [
+            'class' => 'btn btn-outline-primary process-farpoint-sync',
+            'id' => 'sync-farpoint-btn',
+            'data-url' => $syncFarpointUrl,
+            'type' => 'button',
+        ], 'Sync Farpoint monitors');
+
         $actions = FieldList::create(
             LiteralField::create(
                 'run-button',
-                $btn1 . $btn2
+                $btn1 . $btn2 . $syncButton
             )
         );
 
@@ -75,6 +85,32 @@ class DeploymentAdmin extends LeftAndMain
         Requirements::javascript('dorsetdigital/caddyfile-generator:client/javascript/deployment.js');
 
         return $form;
+    }
+
+    public function syncFarpoint(HTTPRequest $request)
+    {
+        if (!$this->canView()) {
+            return $this->jsonError('Permission denied', 403);
+        }
+
+        if (!$request->isPOST()) {
+            return $this->jsonError('Method not allowed', 405);
+        }
+
+        try {
+            $helper = UptimeMonitorHelper::create();
+            $messages = $helper->syncFarpoint();
+
+            return HTTPResponse::create()
+                ->addHeader('Content-Type', 'application/json')
+                ->setBody(json_encode([
+                    'html' => '<pre>' . htmlspecialchars($messages, ENT_QUOTES, 'UTF-8') . '</pre>',
+                    'status' => 'success',
+                ]));
+        } catch (Exception $e) {
+            Injector::inst()->get(LoggerInterface::class)->error($e->getMessage());
+            return $this->jsonError($e->getMessage(), 500);
+        }
     }
 
     /**
