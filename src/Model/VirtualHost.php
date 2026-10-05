@@ -407,7 +407,7 @@ class VirtualHost extends DataObject
                     ->setScale(0)
                     ->setDescription('How often Farpoint should check this host. Minimum 60 seconds.')
             )->displayIf('UptimeMonitorEnabled')->isChecked()
-                ->andIf('UptimeMonitorUseDefaultInterval')->isEqualTo(false)->end(),
+                ->andIf('UptimeMonitorUseDefaultInterval')->isEqualTo(0)->end(),
 
             CheckboxField::create(
                 'UptimeMonitorUseDefaultFailureThreshold',
@@ -422,7 +422,7 @@ class VirtualHost extends DataObject
                     ->setScale(0)
                     ->setDescription('Number of consecutive failed checks required before the host is marked DOWN.')
             )->displayIf('UptimeMonitorEnabled')->isChecked()
-                ->andIf('UptimeMonitorUseDefaultFailureThreshold')->isEqualTo(false)->end(),
+                ->andIf('UptimeMonitorUseDefaultFailureThreshold')->isEqualTo(0)->end(),
 
             HeaderField::create('UptimeDegradedMonitoring', 'Degraded performance monitoring'),
 
