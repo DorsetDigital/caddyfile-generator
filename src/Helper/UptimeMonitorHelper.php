@@ -92,8 +92,8 @@ class UptimeMonitorHelper
     /**
      * Returns active monitors which do not yet have a Farpoint UUID.
      *
-     * This deliberately treats legacy CheckMate IDs as unconfigured so the
-     * first deployment after switching provider recreates them in Farpoint.
+     * Legacy external monitor IDs are treated as unconfigured so they are
+     * recreated in Farpoint on the next deployment or forced sync.
      */
     public function getRequiredMonitors()
     {
