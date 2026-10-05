@@ -72,6 +72,18 @@ use UncleCheese\DisplayLogic\Forms\Wrapper;
  * @property bool $RedirectPaths
  * @property bool $RedirectPermanent
  * @property bool $UptimeMonitorEnabled
+ * @property bool $UptimeMonitorOverrideDefaults
+ * @property int $UptimeMonitorIntervalSeconds
+ * @property int $UptimeMonitorTimeoutMs
+ * @property int $UptimeMonitorExpectedStatus
+ * @property int $UptimeMonitorMinBodyBytes
+ * @property ?string $UptimeMonitorMustContain
+ * @property ?string $UptimeMonitorMustNotContain
+ * @property bool $UptimeMonitorDegradedEnabled
+ * @property int $UptimeMonitorDegradedThresholdMs
+ * @property int $UptimeMonitorDegradedConfirmationChecks
+ * @property int $UptimeMonitorFailureConfirmationChecks
+ * @property int $UptimeMonitorRecoveryConfirmationChecks
  * @property bool $EnableZeroDowntime
  * @property ?string $DocumentRootSuffix
  * @property bool $AddSilverstripeDBENV
@@ -162,6 +174,18 @@ class VirtualHost extends DataObject
         'RedirectPaths' => 'Boolean',
         'RedirectPermanent' => 'Boolean',
         'UptimeMonitorEnabled' => 'Boolean',
+        'UptimeMonitorOverrideDefaults' => 'Boolean',
+        'UptimeMonitorIntervalSeconds' => 'Int',
+        'UptimeMonitorTimeoutMs' => 'Int',
+        'UptimeMonitorExpectedStatus' => 'Int',
+        'UptimeMonitorMinBodyBytes' => 'Int',
+        'UptimeMonitorMustContain' => 'Text',
+        'UptimeMonitorMustNotContain' => 'Text',
+        'UptimeMonitorDegradedEnabled' => 'Boolean',
+        'UptimeMonitorDegradedThresholdMs' => 'Int',
+        'UptimeMonitorDegradedConfirmationChecks' => 'Int',
+        'UptimeMonitorFailureConfirmationChecks' => 'Int',
+        'UptimeMonitorRecoveryConfirmationChecks' => 'Int',
         'EnableZeroDowntime' => 'Boolean',
         'DocumentRootSuffix' => 'Varchar',
         'AddSilverstripeDBENV' => 'Boolean',
@@ -198,6 +222,16 @@ class VirtualHost extends DataObject
         'RateLimitMode' => self::RATE_LIMIT_INHERIT,
         'EnableGatekeeper' => false,
         'GatekeeperProtectedPaths' => "/admin\n/Security",
+        'UptimeMonitorOverrideDefaults' => false,
+        'UptimeMonitorIntervalSeconds' => 60,
+        'UptimeMonitorTimeoutMs' => 15000,
+        'UptimeMonitorExpectedStatus' => 200,
+        'UptimeMonitorMinBodyBytes' => 256,
+        'UptimeMonitorDegradedEnabled' => true,
+        'UptimeMonitorDegradedThresholdMs' => 3000,
+        'UptimeMonitorDegradedConfirmationChecks' => 2,
+        'UptimeMonitorFailureConfirmationChecks' => 2,
+        'UptimeMonitorRecoveryConfirmationChecks' => 2,
     ];
 
     private static $summary_fields = [
@@ -253,7 +287,6 @@ class VirtualHost extends DataObject
             TextField::create('Title', 'Friendly Name'),
             TextField::create('HostName', 'Hostname')
                 ->hideIf('HostType')->isEqualTo(self::HOST_TYPE_MANUAL)->end(),
-            CheckboxField::create('UptimeMonitorEnabled', 'Add uptime monitoring'),
             CheckboxField::create('CacheAssets', 'Cache assets')
                 ->setDescription(_t(__CLASS__ . '.CacheAssetsDesc', 'Sets cache control headers for fonts, images and static assets')),
             DropdownField::create('SiteMode', 'Site Mode', $this->getSiteModes()),
@@ -371,6 +404,77 @@ class VirtualHost extends DataObject
                 TextField::create('ENVSignature', 'Environment Signature')->setReadonly(true),
             ]);
         }
+
+        $fields->addFieldsToTab('Root.Monitoring', [
+            CheckboxField::create('UptimeMonitorEnabled', 'Enable Farpoint monitoring')
+                ->setDescription('Adds this host to Farpoint uptime and performance monitoring.'),
+            CheckboxField::create('UptimeMonitorOverrideDefaults', 'Override system monitoring defaults')
+                ->setDescription('Leave disabled for the normal system-wide Farpoint policy.')
+                ->displayIf('UptimeMonitorEnabled')->isChecked()->end(),
+            Wrapper::create(
+                NumericField::create('UptimeMonitorIntervalSeconds', 'Check interval (seconds)')
+                    ->setScale(0)
+                    ->setDescription('How often Farpoint should check this site. Minimum 60 seconds.')
+            )->displayIf('UptimeMonitorEnabled')->isChecked()
+                ->andIf('UptimeMonitorOverrideDefaults')->isChecked()->end(),
+            Wrapper::create(
+                NumericField::create('UptimeMonitorTimeoutMs', 'Request timeout (ms)')
+                    ->setScale(0)
+            )->displayIf('UptimeMonitorEnabled')->isChecked()
+                ->andIf('UptimeMonitorOverrideDefaults')->isChecked()->end(),
+            Wrapper::create(
+                NumericField::create('UptimeMonitorExpectedStatus', 'Expected HTTP status')
+                    ->setScale(0)
+            )->displayIf('UptimeMonitorEnabled')->isChecked()
+                ->andIf('UptimeMonitorOverrideDefaults')->isChecked()->end(),
+            Wrapper::create(
+                NumericField::create('UptimeMonitorMinBodyBytes', 'Minimum response body size (bytes)')
+                    ->setScale(0)
+            )->displayIf('UptimeMonitorEnabled')->isChecked()
+                ->andIf('UptimeMonitorOverrideDefaults')->isChecked()->end(),
+            Wrapper::create(
+                TextareaField::create('UptimeMonitorMustContain', 'Response must contain')
+                    ->setRows(4)
+                    ->setDescription('Optional. One required string per line.')
+            )->displayIf('UptimeMonitorEnabled')->isChecked()
+                ->andIf('UptimeMonitorOverrideDefaults')->isChecked()->end(),
+            Wrapper::create(
+                TextareaField::create('UptimeMonitorMustNotContain', 'Response must not contain')
+                    ->setRows(4)
+                    ->setDescription('Optional. One forbidden string per line.')
+            )->displayIf('UptimeMonitorEnabled')->isChecked()
+                ->andIf('UptimeMonitorOverrideDefaults')->isChecked()->end(),
+            Wrapper::create(
+                CheckboxField::create('UptimeMonitorDegradedEnabled', 'Detect degraded performance')
+                    ->setDescription('Marks the site degraded when response time exceeds the configured threshold.')
+            )->displayIf('UptimeMonitorEnabled')->isChecked()
+                ->andIf('UptimeMonitorOverrideDefaults')->isChecked()->end(),
+            Wrapper::create(
+                NumericField::create('UptimeMonitorDegradedThresholdMs', 'Degraded response threshold (ms)')
+                    ->setScale(0)
+            )->displayIf('UptimeMonitorEnabled')->isChecked()
+                ->andIf('UptimeMonitorOverrideDefaults')->isChecked()
+                ->andIf('UptimeMonitorDegradedEnabled')->isChecked()->end(),
+            Wrapper::create(
+                NumericField::create('UptimeMonitorDegradedConfirmationChecks', 'Degraded confirmation checks')
+                    ->setScale(0)
+                    ->setDescription('Consecutive slow checks required before entering DEGRADED.')
+            )->displayIf('UptimeMonitorEnabled')->isChecked()
+                ->andIf('UptimeMonitorOverrideDefaults')->isChecked()
+                ->andIf('UptimeMonitorDegradedEnabled')->isChecked()->end(),
+            Wrapper::create(
+                NumericField::create('UptimeMonitorFailureConfirmationChecks', 'Failure confirmation checks')
+                    ->setScale(0)
+                    ->setDescription('Consecutive failed checks required before entering DOWN.')
+            )->displayIf('UptimeMonitorEnabled')->isChecked()
+                ->andIf('UptimeMonitorOverrideDefaults')->isChecked()->end(),
+            Wrapper::create(
+                NumericField::create('UptimeMonitorRecoveryConfirmationChecks', 'Recovery confirmation checks')
+                    ->setScale(0)
+                    ->setDescription('Consecutive healthy checks required before recovery.')
+            )->displayIf('UptimeMonitorEnabled')->isChecked()
+                ->andIf('UptimeMonitorOverrideDefaults')->isChecked()->end(),
+        ]);
 
         $securityFields = [
             HeaderField::create('AccessControlSecurity', 'Access Control'),
@@ -731,6 +835,63 @@ class VirtualHost extends DataObject
         }
 
         return $result;
+    }
+
+    public function getUptimeMonitorConfig(): array
+    {
+        $config = SiteConfig::current_site_config();
+        $useOverride = (bool) $this->UptimeMonitorOverrideDefaults;
+
+        return [
+            'interval_seconds' => $useOverride
+                ? max(60, (int) $this->UptimeMonitorIntervalSeconds)
+                : max(60, (int) $config->FarpointDefaultIntervalSeconds),
+            'timeout_ms' => $useOverride
+                ? max(1000, (int) $this->UptimeMonitorTimeoutMs)
+                : max(1000, (int) $config->FarpointDefaultTimeoutMs),
+            'expected_status' => $useOverride
+                ? (int) $this->UptimeMonitorExpectedStatus
+                : (int) $config->FarpointDefaultExpectedStatus,
+            'min_body_bytes' => $useOverride
+                ? max(0, (int) $this->UptimeMonitorMinBodyBytes)
+                : max(0, (int) $config->FarpointDefaultMinBodyBytes),
+            'must_contain' => $this->normaliseUptimeTextRules(
+                $useOverride
+                    ? $this->UptimeMonitorMustContain
+                    : $config->FarpointDefaultMustContain
+            ),
+            'must_not_contain' => $this->normaliseUptimeTextRules(
+                $useOverride
+                    ? $this->UptimeMonitorMustNotContain
+                    : $config->FarpointDefaultMustNotContain
+            ),
+            'degraded' => [
+                'enabled' => $useOverride
+                    ? (bool) $this->UptimeMonitorDegradedEnabled
+                    : (bool) $config->FarpointDefaultDegradedEnabled,
+                'threshold_ms' => $useOverride
+                    ? max(100, (int) $this->UptimeMonitorDegradedThresholdMs)
+                    : max(100, (int) $config->FarpointDefaultDegradedThresholdMs),
+                'confirmation_checks' => $useOverride
+                    ? max(1, (int) $this->UptimeMonitorDegradedConfirmationChecks)
+                    : max(1, (int) $config->FarpointDefaultDegradedConfirmationChecks),
+            ],
+            'failure_confirmation_checks' => $useOverride
+                ? max(1, (int) $this->UptimeMonitorFailureConfirmationChecks)
+                : max(1, (int) $config->FarpointDefaultFailureConfirmationChecks),
+            'recovery_confirmation_checks' => $useOverride
+                ? max(1, (int) $this->UptimeMonitorRecoveryConfirmationChecks)
+                : max(1, (int) $config->FarpointDefaultRecoveryConfirmationChecks),
+        ];
+    }
+
+    private function normaliseUptimeTextRules(?string $value): array
+    {
+        $lines = preg_split('/\R/', (string) $value) ?: [];
+
+        return array_values(array_filter(array_map('trim', $lines), static function ($line) {
+            return $line !== '';
+        }));
     }
 
     public function getTLSConfigValue()
