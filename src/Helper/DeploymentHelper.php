@@ -102,9 +102,8 @@ class DeploymentHelper
         }
 
         $this->addMessage("------------------------------------");
-        $this->addMessage($monitorHelper->addNewMonitors());
-        $this->addMessage("------------------------------------");
-        $this->addMessage($monitorHelper->cleanUpMonitors());
+        $this->addMessage("Synchronising Farpoint monitors...");
+        $this->addMessage($monitorHelper->syncFarpoint());
         $this->addMessage("------------------------------------");
         $this->addMessage($fsHelper->createNewDocumentRoots());
 
