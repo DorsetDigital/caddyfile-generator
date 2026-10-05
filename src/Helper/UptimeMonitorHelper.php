@@ -2,6 +2,7 @@
 
 namespace DorsetDigital\Caddy\Helper;
 
+use DorsetDigital\Caddy\Client\FarpointClient;
 use DorsetDigital\Caddy\Client\UptimeClientInterface;
 use DorsetDigital\Caddy\Model\UptimeMonitor;
 use Ramsey\Uuid\Uuid;
