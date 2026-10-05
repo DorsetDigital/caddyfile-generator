@@ -39,6 +39,9 @@ use src\Model\Filesystem;
  * @property bool $EnableRateLimit
  * @property int $RateLimitEvents
  * @property int $RateLimitWindow
+ * @property bool $EnableGatekeeper
+ * @property ?string $GatekeeperAuthUpstream
+ * @property ?string $GatekeeperAPIURL
  * @property ?string $WAFConfigCaddyPath
  * @property int $CorazaConfigID
  * @property int $CoreRuleSetConfigID
@@ -65,12 +68,18 @@ class SiteConfigExtension extends Extension
         'EnableRateLimit' => 'Boolean',
         'RateLimitEvents' => 'Int',
         'RateLimitWindow' => 'Int',
+        'EnableGatekeeper' => 'Boolean',
+        'GatekeeperAuthUpstream' => 'Varchar(255)',
+        'GatekeeperAPIURL' => 'Varchar(255)',
     ];
 
     private static $defaults = [
         'EnableRateLimit' => false,
         'RateLimitEvents' => 50,
         'RateLimitWindow' => 10,
+        'EnableGatekeeper' => false,
+        'GatekeeperAuthUpstream' => '127.0.0.1:9080',
+        'GatekeeperAPIURL' => 'http://127.0.0.1:9081',
     ];
 
     private static $has_one = [
@@ -131,6 +140,13 @@ class SiteConfigExtension extends Extension
             NumericField::create('RateLimitWindow', 'Default window (seconds)')
                 ->setDescription('Sliding window used for the default rate limit')
                 ->setScale(0),
+            HeaderField::create('GatekeeperConfig', 'Gatekeeper'),
+            CheckboxField::create('EnableGatekeeper', 'Enable Gatekeeper functionality')
+                ->setDescription('Makes Gatekeeper available for individual standard and proxy hosts. It does not protect any host automatically.'),
+            TextField::create('GatekeeperAuthUpstream', 'Authentication service')
+                ->setDescription('Caddy upstream for Gatekeeper authentication and UI traffic. Normally 127.0.0.1:9080.'),
+            TextField::create('GatekeeperAPIURL', 'Management API URL')
+                ->setDescription('Local management API used to publish per-site Gatekeeper configuration. The bearer token is configured outside the CMS.'),
         ]);
 
         $fields->addFieldsToTab('Root.PHPBackends', [
@@ -156,6 +172,12 @@ class SiteConfigExtension extends Extension
         }
         if ((int) $this->owner->RateLimitWindow < 1) {
             $this->owner->RateLimitWindow = 10;
+        }
+        if (!$this->owner->GatekeeperAuthUpstream) {
+            $this->owner->GatekeeperAuthUpstream = '127.0.0.1:9080';
+        }
+        if (!$this->owner->GatekeeperAPIURL) {
+            $this->owner->GatekeeperAPIURL = 'http://127.0.0.1:9081';
         }
     }
 
