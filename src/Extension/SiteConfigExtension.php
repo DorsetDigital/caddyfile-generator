@@ -14,6 +14,7 @@ use SilverStripe\Forms\GridField\GridFieldConfig_RecordEditor;
 use SilverStripe\Forms\HeaderField;
 use SilverStripe\Forms\LiteralField;
 use SilverStripe\Forms\NumericField;
+use SilverStripe\Forms\TextareaField;
 use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\DataExtension;
 use SilverStripe\SiteConfig\SiteConfig;
@@ -71,6 +72,15 @@ class SiteConfigExtension extends Extension
         'EnableGatekeeper' => 'Boolean',
         'GatekeeperAuthUpstream' => 'Varchar(255)',
         'GatekeeperAPIURL' => 'Varchar(255)',
+        'FarpointDefaultIntervalSeconds' => 'Int',
+        'FarpointDefaultFailureThreshold' => 'Int',
+        'FarpointTimeoutMs' => 'Int',
+        'FarpointRecoveryConfirmationChecks' => 'Int',
+        'FarpointDegradedConfirmationChecks' => 'Int',
+        'FarpointExpectedStatus' => 'Int',
+        'FarpointMinBodyBytes' => 'Int',
+        'FarpointMustContain' => 'Text',
+        'FarpointMustNotContain' => 'Text',
     ];
 
     private static $defaults = [
@@ -80,6 +90,13 @@ class SiteConfigExtension extends Extension
         'EnableGatekeeper' => false,
         'GatekeeperAuthUpstream' => '127.0.0.1:9080',
         'GatekeeperAPIURL' => 'http://127.0.0.1:9081',
+        'FarpointDefaultIntervalSeconds' => 60,
+        'FarpointDefaultFailureThreshold' => 2,
+        'FarpointTimeoutMs' => 15000,
+        'FarpointRecoveryConfirmationChecks' => 2,
+        'FarpointDegradedConfirmationChecks' => 2,
+        'FarpointExpectedStatus' => 200,
+        'FarpointMinBodyBytes' => 256,
     ];
 
     private static $has_one = [
@@ -149,6 +166,50 @@ class SiteConfigExtension extends Extension
                 ->setDescription('Local management API used to publish per-site Gatekeeper configuration. The bearer token is configured outside the CMS.'),
         ]);
 
+        $fields->addFieldsToTab('Root.Monitoring', [
+            HeaderField::create('FarpointDefaults', 'Farpoint defaults'),
+            NumericField::create(
+                'FarpointDefaultIntervalSeconds',
+                'Default test frequency (seconds)'
+            )
+                ->setScale(0)
+                ->setDescription('Used by hosts which are configured to use the system default. Minimum 60 seconds.'),
+            NumericField::create(
+                'FarpointDefaultFailureThreshold',
+                'Default failure threshold'
+            )
+                ->setScale(0)
+                ->setDescription('Consecutive failed checks required before a host is marked DOWN.'),
+
+            HeaderField::create('FarpointRequestSettings', 'Request settings'),
+            NumericField::create('FarpointTimeoutMs', 'Request timeout (milliseconds)')
+                ->setScale(0),
+            NumericField::create('FarpointExpectedStatus', 'Expected HTTP status')
+                ->setScale(0),
+            NumericField::create('FarpointMinBodyBytes', 'Minimum response body size (bytes)')
+                ->setScale(0),
+            TextareaField::create('FarpointMustContain', 'Response must contain')
+                ->setRows(4)
+                ->setDescription('Optional. One required string per line. Applied to all monitored hosts.'),
+            TextareaField::create('FarpointMustNotContain', 'Response must not contain')
+                ->setRows(4)
+                ->setDescription('Optional. One forbidden string per line. Applied to all monitored hosts.'),
+
+            HeaderField::create('FarpointStateSettings', 'State confirmation'),
+            NumericField::create(
+                'FarpointRecoveryConfirmationChecks',
+                'Recovery confirmation checks'
+            )
+                ->setScale(0)
+                ->setDescription('Consecutive healthy checks required before a host recovers to UP.'),
+            NumericField::create(
+                'FarpointDegradedConfirmationChecks',
+                'Degraded confirmation checks'
+            )
+                ->setScale(0)
+                ->setDescription('Consecutive slow checks required before entering DEGRADED. The degraded threshold itself is configured per host.'),
+        ]);
+
         $fields->addFieldsToTab('Root.PHPBackends', [
             GridField::create('PHPBackends', 'PHP Backends', PHPBackend::get(), GridFieldConfig_RecordEditor::create())
         ]);
@@ -178,6 +239,31 @@ class SiteConfigExtension extends Extension
         }
         if (!$this->owner->GatekeeperAPIURL) {
             $this->owner->GatekeeperAPIURL = 'http://127.0.0.1:9081';
+        }
+
+        if ((int) $this->owner->FarpointDefaultIntervalSeconds < 60) {
+            $this->owner->FarpointDefaultIntervalSeconds = 60;
+        }
+        if ((int) $this->owner->FarpointDefaultFailureThreshold < 1) {
+            $this->owner->FarpointDefaultFailureThreshold = 2;
+        }
+        if ((int) $this->owner->FarpointTimeoutMs < 1000) {
+            $this->owner->FarpointTimeoutMs = 15000;
+        }
+        if ((int) $this->owner->FarpointRecoveryConfirmationChecks < 1) {
+            $this->owner->FarpointRecoveryConfirmationChecks = 2;
+        }
+        if ((int) $this->owner->FarpointDegradedConfirmationChecks < 1) {
+            $this->owner->FarpointDegradedConfirmationChecks = 2;
+        }
+        if (
+            (int) $this->owner->FarpointExpectedStatus < 100
+            || (int) $this->owner->FarpointExpectedStatus > 599
+        ) {
+            $this->owner->FarpointExpectedStatus = 200;
+        }
+        if ((int) $this->owner->FarpointMinBodyBytes < 0) {
+            $this->owner->FarpointMinBodyBytes = 0;
         }
     }
 
