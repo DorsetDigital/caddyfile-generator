@@ -4,8 +4,9 @@ namespace DorsetDigital\Caddy\Helper;
 
 use DorsetDigital\Caddy\Client\UptimeClientInterface;
 use DorsetDigital\Caddy\Model\UptimeMonitor;
+use Ramsey\Uuid\Uuid;
 use SilverStripe\Core\Injector\Injectable;
-use SilverStripe\ORM\DataList;
+use SilverStripe\ORM\ArrayList;
 
 class UptimeMonitorHelper
 {
@@ -26,12 +27,20 @@ class UptimeMonitorHelper
             $messages[] = 'No monitors found to clean up.';
         }
         foreach ($monitors as $monitor) {
-            $delete = $this->deleteMonitor($monitor->MonitorID);
+            $monitorID = $monitor->MonitorID;
+
+            if (!Uuid::isValid((string) $monitorID)) {
+                $monitor->update(['MonitorID' => null])->write();
+                $messages[] = sprintf('Legacy monitor ID %s was cleared.', $monitorID);
+                continue;
+            }
+
+            $delete = $this->deleteMonitor($monitorID);
             if ($delete) {
                 $monitor->update(['MonitorID' => null])->write();
-                $messages[] = sprintf('Monitor ID %s was deleted.', $monitor->MonitorID);
+                $messages[] = sprintf('Monitor ID %s was deleted.', $monitorID);
             } else {
-                $messages[] = sprintf('Failed to delete Monitor ID %s.', $monitor->MonitorID);
+                $messages[] = sprintf('Failed to delete Monitor ID %s.', $monitorID);
             }
         }
         return implode("\n", $messages);
@@ -80,16 +89,22 @@ class UptimeMonitorHelper
     }
 
     /**
-     * @return DataList
+     * Returns active monitors which do not yet have a Farpoint UUID.
+     *
+     * This deliberately treats legacy CheckMate IDs as unconfigured so the
+     * first deployment after switching provider recreates them in Farpoint.
      */
     public function getRequiredMonitors()
     {
-        return UptimeMonitor::get()->filter([
-            'Active' => 1,
-        ])->filterAny([
-            'MonitorID:ExactMatch' => '',
-            'MonitorID' => null
-        ]);
+        $required = ArrayList::create();
+
+        foreach (UptimeMonitor::get()->filter(['Active' => 1]) as $monitor) {
+            if (!$monitor->MonitorID || !Uuid::isValid((string) $monitor->MonitorID)) {
+                $required->push($monitor);
+            }
+        }
+
+        return $required;
     }
 
     public function createMonitor($name, $url)
