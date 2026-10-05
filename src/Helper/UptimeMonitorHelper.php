@@ -99,12 +99,12 @@ class UptimeMonitorHelper
 
     public function getMonitor($monitorID)
     {
-
+        return $this->client->getMonitor($monitorID);
     }
 
-    public function updateMonitor($monitorID)
+    public function updateMonitor($monitorID, array $data = [])
     {
-
+        return $this->client->updateMonitor($monitorID, $data);
     }
 
 }
