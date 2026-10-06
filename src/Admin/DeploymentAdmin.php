@@ -90,11 +90,11 @@ class DeploymentAdmin extends LeftAndMain
     public function syncFarpoint(HTTPRequest $request)
     {
         if (!$this->canView()) {
-            return $this->jsonError('Permission denied', 403);
+            $this->jsonError(403, 'Permission denied');
         }
 
         if (!$request->isPOST()) {
-            return $this->jsonError('Method not allowed', 405);
+            $this->jsonError(405, 'Method not allowed');
         }
 
         try {
@@ -109,7 +109,7 @@ class DeploymentAdmin extends LeftAndMain
                 ]));
         } catch (Exception $e) {
             Injector::inst()->get(LoggerInterface::class)->error($e->getMessage());
-            return $this->jsonError($e->getMessage(), 500);
+            $this->jsonError(500, $e->getMessage());
         }
     }
 
@@ -148,7 +148,7 @@ class DeploymentAdmin extends LeftAndMain
 
         } catch (Exception $e) {
             Injector::inst()->get(LoggerInterface::class)->error($e->getMessage());
-            return $this->jsonError(500, $e->getMessage());
+            $this->jsonError(500, $e->getMessage());
         }
     }
 
