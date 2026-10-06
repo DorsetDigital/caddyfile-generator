@@ -8,7 +8,7 @@ use DorsetDigital\Caddy\Model\UptimeMonitor;
 use DorsetDigital\Caddy\Model\VirtualHost;
 use Ramsey\Uuid\Uuid;
 use SilverStripe\Core\Injector\Injectable;
-use SilverStripe\ORM\ArrayList;
+use SilverStripe\Model\List\ArrayList;
 
 class UptimeMonitorHelper
 {
