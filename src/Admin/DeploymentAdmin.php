@@ -120,11 +120,11 @@ class DeploymentAdmin extends LeftAndMain
     public function runProcess(HTTPRequest $request)
     {
         if (!$this->canView()) {
-            return $this->jsonError('Permission denied', 403);
+            $this->jsonError(403, 'Permission denied');
         }
 
         if (!$request->isPOST()) {
-            return $this->jsonError('Method not allowed', 405);
+            $this->jsonError(405, 'Method not allowed');
         }
 
         try {
