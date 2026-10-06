@@ -14,17 +14,30 @@ class EnableUptimeMonitorsTask extends BuildTask
     protected static string $commandName = 'enable-uptime-monitors';
     protected string $title = 'Enable Uptime Monitors on all sites';
 
-    public function execute(InputInterface $input, PolyOutput $output): int
+    protected function execute(InputInterface $input, PolyOutput $output): int
     {
-        //Get all the sites, this is a sledgehammer
         $allSites = VirtualHost::get();
 
-        //Update them to enable monitoring, and save.  The write hooks should sort it all out
         foreach ($allSites as $site) {
-            $site->update([
-                'UptimeMonitorEnabled' => true,
-            ])->write();
-            $site->publishRecursive();
+            // Existing records may pre-date the Farpoint override fields.
+            // Treat an empty/invalid override as "use the system default".
+            if (
+                !$site->UptimeMonitorUseDefaultInterval
+                && (int) $site->UptimeMonitorIntervalSeconds < 60
+            ) {
+                $site->UptimeMonitorUseDefaultInterval = true;
+            }
+
+            if (
+                !$site->UptimeMonitorUseDefaultFailureThreshold
+                && (int) $site->UptimeMonitorFailureThreshold < 1
+            ) {
+                $site->UptimeMonitorUseDefaultFailureThreshold = true;
+            }
+
+            $site->UptimeMonitorEnabled = true;
+            $site->write();
+            $site->publishSingle();
         }
 
         $output->writeln('Uptime Monitors enabled - please run a deployment to create them on production');
