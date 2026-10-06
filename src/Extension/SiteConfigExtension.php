@@ -16,7 +16,6 @@ use SilverStripe\Forms\LiteralField;
 use SilverStripe\Forms\NumericField;
 use SilverStripe\Forms\TextareaField;
 use SilverStripe\Forms\TextField;
-use SilverStripe\ORM\DataExtension;
 use SilverStripe\SiteConfig\SiteConfig;
 use src\Model\Filesystem;
 
