@@ -7,7 +7,7 @@ use Exception;
 use Psr\Container\NotFoundExceptionInterface;
 use Psr\Log\LoggerInterface;
 use SilverStripe\Core\Injector\Injector;
-use SilverStripe\ORM\ValidationException;
+use SilverStripe\Core\Validation\ValidationException;
 use SilverStripe\SiteConfig\SiteConfig;
 
 class CaddyHelper
