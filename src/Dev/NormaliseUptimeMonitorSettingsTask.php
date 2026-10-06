@@ -8,24 +8,28 @@ use SilverStripe\PolyExecution\PolyOutput;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 
-class EnableUptimeMonitorsTask extends BuildTask
+class NormaliseUptimeMonitorSettingsTask extends BuildTask
 {
-    protected static string $description = 'Enables uptime monitors on all sites, they will be activated during the next deployment run';
-    protected static string $commandName = 'enable-uptime-monitors';
-    protected string $title = 'Enable Uptime Monitors on all sites';
+    protected static string $description =
+        'Normalises legacy uptime monitoring settings added before Farpoint defaults were populated';
+
+    protected static string $commandName = 'normalise-uptime-monitor-settings';
+
+    protected string $title = 'Normalise uptime monitor settings';
 
     protected function execute(InputInterface $input, PolyOutput $output): int
     {
-        $allSites = VirtualHost::get();
+        $updated = 0;
 
-        foreach ($allSites as $site) {
-            // Existing records may pre-date the Farpoint override fields.
-            // Treat an empty/invalid override as "use the system default".
+        foreach (VirtualHost::get() as $site) {
+            $changed = false;
+
             if (
                 !$site->UptimeMonitorUseDefaultInterval
                 && (int) $site->UptimeMonitorIntervalSeconds < 60
             ) {
                 $site->UptimeMonitorUseDefaultInterval = true;
+                $changed = true;
             }
 
             if (
@@ -33,14 +37,28 @@ class EnableUptimeMonitorsTask extends BuildTask
                 && (int) $site->UptimeMonitorFailureThreshold < 1
             ) {
                 $site->UptimeMonitorUseDefaultFailureThreshold = true;
+                $changed = true;
             }
 
-            $site->UptimeMonitorEnabled = true;
+            if (!$changed) {
+                continue;
+            }
+
             $site->write();
             $site->publishSingle();
+            $updated++;
+
+            $output->writeln(sprintf(
+                'Normalised ID %d: %s',
+                $site->ID,
+                $site->Title ?: $site->HostName ?: '(unnamed host)'
+            ));
         }
 
-        $output->writeln('Uptime Monitors enabled - please run a deployment to create them on production');
+        $output->writeln(sprintf(
+            'Complete. Normalised %d VirtualHost record(s).',
+            $updated
+        ));
 
         return Command::SUCCESS;
     }

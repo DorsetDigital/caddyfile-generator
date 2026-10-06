@@ -75,7 +75,7 @@ class BitbucketHelper
                 ]));
                 $this->setStatus(self::BB_STATUS_ERROR);
             }
-        } catch (Exception $e) {
+        } catch (GuzzleException $e) {
             $this->setMessage(_t(__CLASS__ . 'CommitError', 'Error committimng files: {message}', [
                 'message' => $e->getMessage()
             ]));
