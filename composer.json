@@ -11,6 +11,9 @@
     }
   ],
   "require": {
+    "php": "^8.3",
+    "silverstripe/framework": "^6.2",
+    "silverstripe/cms": "^6.2",
     "unclecheese/display-logic": "^4",
     "symbiote/silverstripe-gridfieldextensions": "^5",
     "ramsey/uuid": "^4",
