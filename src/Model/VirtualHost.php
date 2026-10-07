@@ -443,28 +443,28 @@ class VirtualHost extends DataObject
         ]);
 
         $hostType = (int) $this->HostType;
-        $isStandardHost = $hostType === self::HOST_TYPE_HOST;
         $supportsAccessControl = in_array(
             $hostType,
             [self::HOST_TYPE_HOST, self::HOST_TYPE_PROXY],
             true
         );
+        $supportsRateLimit = in_array(
+            $hostType,
+            [self::HOST_TYPE_HOST, self::HOST_TYPE_PROXY],
+            true
+        );
 
-        $securityFields = [
-            HeaderField::create('AccessControlSecurity', 'Access Control'),
-        ];
+        $securityFields = [];
 
         if ($supportsAccessControl) {
+            $securityFields[] = HeaderField::create('AccessControlSecurity', 'Access Control');
             $securityFields[] = DropdownField::create(
                 'AuthCredentialsID',
                 'Auth Access Credentials',
                 BasicAuthCreds::get()->map('ID', 'Title')
             )->setEmptyString('No auth required');
-        }
 
-        $securityFields[] = HeaderField::create('WordPressSecurity', 'WordPress');
-
-        if ($supportsAccessControl) {
+            $securityFields[] = HeaderField::create('WordPressSecurity', 'WordPress');
             $securityFields[] = CheckboxField::create(
                 'AllowWordPressRoutes',
                 'Allow WordPress routes'
@@ -473,10 +473,9 @@ class VirtualHost extends DataObject
             );
         }
 
-        $rateLimitConfig = SiteConfig::current_site_config();
-        $securityFields[] = HeaderField::create('RateLimitSecurity', 'Rate Limiting');
-
-        if ($isStandardHost) {
+        if ($supportsRateLimit) {
+            $rateLimitConfig = SiteConfig::current_site_config();
+            $securityFields[] = HeaderField::create('RateLimitSecurity', 'Rate Limiting');
             $securityFields[] = DropdownField::create('RateLimitMode', 'Rate limiting', [
                 self::RATE_LIMIT_INHERIT => sprintf(
                     'Use global setting (%s)',
@@ -499,12 +498,12 @@ class VirtualHost extends DataObject
                 ->setScale(0);
         }
 
-        if (SiteConfig::current_site_config()->EnableWAF) {
+        if (
+            SiteConfig::current_site_config()->EnableWAF
+            && $hostType !== self::HOST_TYPE_MANUAL
+        ) {
             $securityFields[] = HeaderField::create('WAFSecurity', 'Web Application Firewall');
-
-            if ($hostType !== self::HOST_TYPE_MANUAL) {
-                $securityFields[] = CheckboxField::create('EnableWAF', 'Enable WAF');
-            }
+            $securityFields[] = CheckboxField::create('EnableWAF', 'Enable WAF');
         }
 
         $fields->addFieldsToTab('Root.Security', $securityFields);
