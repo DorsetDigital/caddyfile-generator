@@ -46,14 +46,20 @@
     }
 
     function stateBadge(state) {
-        var className = 'bg-secondary';
+        var className;
 
-        if (state === 'UP') {
-            className = 'bg-success';
-        } else if (state === 'DEGRADED') {
-            className = 'bg-warning text-dark';
-        } else if (state === 'DOWN') {
-            className = 'bg-danger';
+        switch (state) {
+            case 'UP':
+                className = 'bg-success';
+                break;
+            case 'DEGRADED':
+                className = 'bg-warning text-dark';
+                break;
+            case 'DOWN':
+                className = 'bg-danger';
+                break;
+            default:
+                className = 'bg-secondary';
         }
 
         return '<span class="badge ' + className + '">' +
