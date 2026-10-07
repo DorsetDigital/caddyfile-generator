@@ -12,6 +12,8 @@ $CurrentHostName<% if not $EnableHTTPS %>:80<% end_if %> {
 header x-hosting "BBP Advanced Hosting"
 <% if $WAFEnabled %><% include Caddy\WAF %>
 <% end_if %>
+<% if $RateLimitEnabled %><% include Caddy\RateLimit %>
+<% end_if %>
 <% if $RedirectRules %><% include Caddy\Redirects %>
 <% end_if %>
 reverse_proxy $ProxyHost <% if $UpstreamHostHeader || $IsHTTPSUpstream || $RemoveForwardedHeader %>{
