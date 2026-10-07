@@ -47,6 +47,41 @@ class MonitoringAdmin extends LeftAndMain
                 '<div id="farpoint-summary" class="row mb-4"></div>'
             ),
             LiteralField::create(
+                'FarpointFilters',
+                '<div class="row g-2 align-items-end mb-3">' .
+                '<div class="col-md-4">' .
+                '<label class="form-label" for="farpoint-search">Search</label>' .
+                '<input type="search" id="farpoint-search" class="form-control" placeholder="Site name or URL">' .
+                '</div>' .
+                '<div class="col-md-3">' .
+                '<label class="form-label" for="farpoint-state-filter">Status</label>' .
+                '<select id="farpoint-state-filter" class="form-select">' .
+                '<option value="">All statuses</option>' .
+                '<option value="UP">Up</option>' .
+                '<option value="DEGRADED">Degraded</option>' .
+                '<option value="DOWN">Down</option>' .
+                '<option value="UNKNOWN">Unknown</option>' .
+                '</select>' .
+                '</div>' .
+                '<div class="col-md-3">' .
+                '<label class="form-label" for="farpoint-sort">Sort by</label>' .
+                '<select id="farpoint-sort" class="form-select">' .
+                '<option value="name">Site name</option>' .
+                '<option value="state">Status</option>' .
+                '<option value="response_time">Response time</option>' .
+                '<option value="last_checked">Last checked</option>' .
+                '</select>' .
+                '</div>' .
+                '<div class="col-md-2">' .
+                '<label class="form-label" for="farpoint-direction">Direction</label>' .
+                '<select id="farpoint-direction" class="form-select">' .
+                '<option value="asc">Ascending</option>' .
+                '<option value="desc">Descending</option>' .
+                '</select>' .
+                '</div>' .
+                '</div>'
+            ),
+            LiteralField::create(
                 'FarpointTable',
                 '<div class="table-responsive">' .
                 '<table class="table table-striped table-hover">' .
@@ -104,11 +139,24 @@ class MonitoringAdmin extends LeftAndMain
         }
 
         try {
-            $data = $this->getClient()->getDashboard([
+            $query = [
                 'page' => max(1, (int) $request->getVar('page')),
                 'per_page' => min(100, max(1, (int) ($request->getVar('per_page') ?: 100))),
                 'sort' => $request->getVar('sort') ?: 'name',
-            ]);
+                'direction' => $request->getVar('direction') ?: 'asc',
+            ];
+
+            $state = trim((string) $request->getVar('state'));
+            if ($state !== '') {
+                $query['state'] = $state;
+            }
+
+            $search = trim((string) $request->getVar('search'));
+            if ($search !== '') {
+                $query['search'] = $search;
+            }
+
+            $data = $this->getClient()->getDashboard($query);
 
             if (!is_array($data)) {
                 return $this->jsonResponse(['error' => 'Farpoint is unavailable'], 502);

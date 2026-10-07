@@ -1,5 +1,6 @@
 (function ($) {
     var refreshTimer = null;
+    var searchTimer = null;
 
     function escapeHtml(value) {
         return $('<div>').text(value == null ? '' : String(value)).html();
@@ -45,14 +46,20 @@
     }
 
     function stateBadge(state) {
-        var className = 'badge-secondary';
+        var className;
 
-        if (state === 'UP') {
-            className = 'badge-success';
-        } else if (state === 'DEGRADED') {
-            className = 'badge-warning';
-        } else if (state === 'DOWN') {
-            className = 'badge-danger';
+        switch (state) {
+            case 'UP':
+                className = 'bg-success';
+                break;
+            case 'DEGRADED':
+                className = 'bg-warning text-dark';
+                break;
+            case 'DOWN':
+                className = 'bg-danger';
+                break;
+            default:
+                className = 'bg-secondary';
         }
 
         return '<span class="badge ' + className + '">' +
@@ -128,6 +135,13 @@
             url: url,
             type: 'GET',
             dataType: 'json',
+            data: {
+                state: $('#farpoint-state-filter').val() || '',
+                search: $('#farpoint-search').val() || '',
+                sort: $('#farpoint-sort').val() || 'name',
+                direction: $('#farpoint-direction').val() || 'asc',
+                per_page: 100
+            },
             success: renderDashboard,
             error: function (xhr) {
                 var message = 'Unable to load Farpoint monitoring data.';
@@ -200,6 +214,22 @@
                 $('.farpoint-control').prop('disabled', false);
             }
         });
+    });
+
+    $(document).on(
+        'change',
+        '#farpoint-state-filter, #farpoint-sort, #farpoint-direction',
+        function () {
+            loadDashboard();
+        }
+    );
+
+    $(document).on('input', '#farpoint-search', function () {
+        if (searchTimer) {
+            window.clearTimeout(searchTimer);
+        }
+
+        searchTimer = window.setTimeout(loadDashboard, 250);
     });
 
     $(document).on('click', '#Menu-DorsetDigital-Caddy-Admin-MonitoringAdmin', function () {
