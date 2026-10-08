@@ -26,6 +26,7 @@
     log access {
         include http.log.access.access
         output file /var/log/caddy/access.log {
+            roll_at 00:00
             roll_size 100MiB
             roll_keep 3
             roll_keep_for 24h
@@ -36,6 +37,7 @@
     log waf {
         include http.handlers.waf
         output file /var/log/caddy/waf.log {
+            roll_at 00:00
             roll_size 100MiB
             roll_keep 3
             roll_keep_for 24h
@@ -46,6 +48,7 @@
     log errors {
         include http.handlers.reverse_proxy
         output file /var/log/caddy/error.log {
+            roll_at 00:00
             roll_size 100MiB
             roll_keep 3
             roll_keep_for 24h
