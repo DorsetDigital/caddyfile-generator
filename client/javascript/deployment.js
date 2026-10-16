@@ -78,4 +78,50 @@
             }
         });
     });
+    $(document).on('click', '.process-gatekeeper-sync', function (e) {
+        e.preventDefault();
+
+        var button = $(this);
+        var processURL = button.data('url');
+        var originalText = button.text();
+
+        if (!window.confirm(
+            'Force Gatekeeper to match the live control-panel configuration? ' +
+            'Gatekeeper site records which are not represented by live hosts may be removed.'
+        )) {
+            return;
+        }
+
+        button.prop('disabled', true).text('Syncing...');
+        $('#process-results').html('<p><em>Synchronising Gatekeeper...</em></p>');
+
+        $.ajax({
+            url: processURL,
+            type: 'POST',
+            dataType: 'json',
+            headers: {
+                'X-SecurityID': $('input[name="SecurityID"]').val()
+            },
+            success: function (response) {
+                if (response.html) {
+                    $('#process-results').html(response.html);
+                }
+            },
+            error: function (xhr, status, error) {
+                var message = error;
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    message = xhr.responseJSON.error;
+                }
+                $('#process-results').html(
+                    '<div class="alert alert-danger">Gatekeeper sync failed: ' +
+                    $('<div>').text(message).html() +
+                    '</div>'
+                );
+            },
+            complete: function () {
+                button.prop('disabled', false).text(originalText);
+            }
+        });
+    });
+
 })(jQuery);
