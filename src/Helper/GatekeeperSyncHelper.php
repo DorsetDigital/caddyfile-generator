@@ -4,6 +4,7 @@ namespace DorsetDigital\Caddy\Helper;
 
 use DorsetDigital\Caddy\Client\GatekeeperClient;
 use DorsetDigital\Caddy\Model\VirtualHost;
+use Exception;
 use SilverStripe\Core\Injector\Injectable;
 use SilverStripe\ORM\DataList;
 
@@ -20,10 +21,22 @@ class GatekeeperSyncHelper
         $remote = $client->listSites();
 
         $remoteManagedIDs = [];
+        $remoteHostOwners = [];
+
         foreach ($remote as $site) {
             $siteID = $site['id'] ?? '';
-            if (is_string($siteID) && str_starts_with($siteID, self::SITE_ID_PREFIX)) {
+            if (!is_string($siteID) || $siteID === '') {
+                continue;
+            }
+
+            if (str_starts_with($siteID, self::SITE_ID_PREFIX)) {
                 $remoteManagedIDs[$siteID] = true;
+            }
+
+            foreach ($site['hosts'] ?? [] as $host) {
+                if (is_string($host) && $host !== '') {
+                    $remoteHostOwners[strtolower($host)] = $siteID;
+                }
             }
         }
 
@@ -32,6 +45,26 @@ class GatekeeperSyncHelper
             if (!isset($desired[$siteID])) {
                 $client->deleteSite($siteID);
                 $removed++;
+
+                foreach ($remoteHostOwners as $host => $ownerID) {
+                    if ($ownerID === $siteID) {
+                        unset($remoteHostOwners[$host]);
+                    }
+                }
+            }
+        }
+
+        foreach ($desired as $siteID => $payload) {
+            foreach ($payload['hosts'] as $host) {
+                $ownerID = $remoteHostOwners[strtolower($host)] ?? null;
+
+                if ($ownerID !== null && $ownerID !== $siteID) {
+                    throw new Exception(sprintf(
+                        'Gatekeeper host %s is already assigned to unmanaged site %s. Remove or rename that Gatekeeper site before deploying.',
+                        $host,
+                        $ownerID
+                    ));
+                }
             }
         }
 
