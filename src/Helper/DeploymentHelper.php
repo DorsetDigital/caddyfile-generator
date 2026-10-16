@@ -82,6 +82,7 @@ class DeploymentHelper
             $this->addMessage("DRY RUN - Not pushing to repository");
             $this->addMessage("DRY RUN - Not deploying TLS files");
             $this->addMessage("DRY RUN - Not deploying ENV files");
+            $this->addMessage("DRY RUN - Not synchronising Gatekeeper");
             $this->addMessage("------------------------------------");
             $this->addMessage("Getting uptime monitor requirements...");
             $this->addMessage($monitorMessage);
@@ -144,6 +145,13 @@ class DeploymentHelper
         $this->addMessage("ENV files");
         $this->addMessage(implode("<br>", $envFileMessages));
         $this->addMessage("------------------------------------");
+
+        $config = SiteConfig::current_site_config();
+        if ($config->EnableGatekeeper) {
+            $this->addMessage("Synchronising Gatekeeper...");
+            $this->addMessage(GatekeeperSyncHelper::create()->sync($allSites));
+            $this->addMessage("------------------------------------");
+        }
 
         $this->addMessage("Config files built.  Pushing to repository...");
 
