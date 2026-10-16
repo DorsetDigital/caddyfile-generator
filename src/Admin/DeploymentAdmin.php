@@ -3,7 +3,9 @@
 namespace DorsetDigital\Caddy\Admin;
 
 use DorsetDigital\Caddy\Helper\DeploymentHelper;
+use DorsetDigital\Caddy\Helper\GatekeeperSyncHelper;
 use DorsetDigital\Caddy\Helper\UptimeMonitorHelper;
+use DorsetDigital\Caddy\Model\VirtualHost;
 use Exception;
 use Psr\Log\LoggerInterface;
 use SilverStripe\Admin\LeftAndMain;
@@ -15,6 +17,7 @@ use SilverStripe\Forms\Form;
 use SilverStripe\Forms\HeaderField;
 use SilverStripe\Forms\LiteralField;
 use SilverStripe\View\HTML;
+use SilverStripe\Versioned\Versioned;
 use SilverStripe\View\Requirements;
 
 /**
@@ -31,12 +34,14 @@ class DeploymentAdmin extends LeftAndMain
     private static $allowed_actions = [
         'runProcess',
         'syncFarpoint',
+        'syncGatekeeper',
     ];
 
     public function getEditForm($id = null, $fields = null)
     {
         $runUrl = $this->Link('runProcess');
         $syncFarpointUrl = $this->Link('syncFarpoint');
+        $syncGatekeeperUrl = $this->Link('syncGatekeeper');
 
         $fields = FieldList::create(
             HeaderField::create('Build the Caddy configuration'),
@@ -64,10 +69,17 @@ class DeploymentAdmin extends LeftAndMain
             'type' => 'button',
         ], 'Sync Farpoint monitors');
 
+        $syncGatekeeperButton = HTML::createTag('button', [
+            'class' => 'btn btn-outline-primary process-gatekeeper-sync',
+            'id' => 'sync-gatekeeper-btn',
+            'data-url' => $syncGatekeeperUrl,
+            'type' => 'button',
+        ], 'Sync Gatekeeper');
+
         $actions = FieldList::create(
             LiteralField::create(
                 'run-button',
-                $btn1 . $btn2 . $syncButton
+                $btn1 . $btn2 . $syncButton . $syncGatekeeperButton
             )
         );
 
@@ -100,6 +112,32 @@ class DeploymentAdmin extends LeftAndMain
         try {
             $helper = UptimeMonitorHelper::create();
             $messages = $helper->syncFarpoint();
+
+            return HTTPResponse::create()
+                ->addHeader('Content-Type', 'application/json')
+                ->setBody(json_encode([
+                    'html' => '<pre>' . htmlspecialchars($messages, ENT_QUOTES, 'UTF-8') . '</pre>',
+                    'status' => 'success',
+                ]));
+        } catch (Exception $e) {
+            Injector::inst()->get(LoggerInterface::class)->error($e->getMessage());
+            $this->jsonError(500, $e->getMessage());
+        }
+    }
+
+    public function syncGatekeeper(HTTPRequest $request)
+    {
+        if (!$this->canView()) {
+            $this->jsonError(403, 'Permission denied');
+        }
+
+        if (!$request->isPOST()) {
+            $this->jsonError(405, 'Method not allowed');
+        }
+
+        try {
+            $sites = Versioned::get_by_stage(VirtualHost::class, 'Live');
+            $messages = GatekeeperSyncHelper::create()->sync($sites, true);
 
             return HTTPResponse::create()
                 ->addHeader('Content-Type', 'application/json')
