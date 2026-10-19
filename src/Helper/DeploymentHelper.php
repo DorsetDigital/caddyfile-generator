@@ -108,43 +108,7 @@ class DeploymentHelper
         $this->addMessage("------------------------------------");
         $this->addMessage($fsHelper->createNewDocumentRoots());
 
-        $envFileMessages = [];
-
-        foreach ($deploymentSites as $site) {
-            if (!$fsHelper->checkDeploymentStructure($site)) {
-                $this->addMessage(sprintf(
-                    'Failed to prepare deployment structure for %s',
-                    $site->HostName
-                ));
-                continue;
-            }
-
-            $thisENV = $envHelper->setSite($site)->generateENV();
-            if ($thisENV->getENVSignature() !== $site->ENVSignature) {
-                $envFileName = $thisENV->writeToFile();
-
-                if ($envFileName) {
-                    if ($site->EnableZeroDowntime && !$fsHelper->ensureENVLink($site)) {
-                        $envFileMessages[] = sprintf(
-                            'Wrote env file to %s but failed to create current/.env symlink',
-                            $envFileName
-                        );
-                        continue;
-                    }
-
-                    $envFileMessages[] = sprintf("Writing env file to %s", $envFileName);
-                    $site->update(['ENVSignature' => $thisENV->getENVSignature()])->write();
-                    $site->publishSingle();
-                }
-            } elseif ($site->EnableZeroDowntime && $site->hasEnvironmentVars()) {
-                $fsHelper->ensureENVLink($site);
-            }
-        }
-
-        $this->addMessage("------------------------------------");
-        $this->addMessage("ENV files");
-        $this->addMessage(implode("<br>", $envFileMessages));
-        $this->addMessage("------------------------------------");
+        $this->processENVFiles();
 
         $config = SiteConfig::current_site_config();
         if ($config->EnableGatekeeper) {
@@ -180,6 +144,58 @@ class DeploymentHelper
         $this->addMessage("<pre>" . implode("\n", $bitbucketRes) . "</pre>\n");
         $this->addMessage("<p>" . $prRes . "</p>\n");
         return true;
+    }
+
+    /**
+     * Update ENV files for published standard hosts without deploying Caddy configuration.
+     * The full deployment uses this same path to preserve signature handling.
+     */
+    public function processENVFiles(): void
+    {
+        $fsHelper = FilesystemHelper::create();
+        $envHelper = EnvHelper::create();
+        $deploymentSites = Versioned::get_by_stage(VirtualHost::class, 'Live')
+            ->filter('HostType', VirtualHost::HOST_TYPE_HOST);
+        $envFileMessages = [];
+
+        foreach ($deploymentSites as $site) {
+            if (!$fsHelper->checkDeploymentStructure($site)) {
+                $this->addMessage(sprintf(
+                    'Failed to prepare deployment structure for %s',
+                    $site->HostName
+                ));
+                continue;
+            }
+
+            $thisENV = $envHelper->setSite($site)->generateENV();
+            if ($thisENV->getENVSignature() !== $site->ENVSignature) {
+                $envFileName = $thisENV->writeToFile();
+
+                if ($envFileName) {
+                    if ($site->EnableZeroDowntime && !$fsHelper->ensureENVLink($site)) {
+                        $envFileMessages[] = sprintf(
+                            'Wrote env file to %s but failed to create current/.env symlink',
+                            $envFileName
+                        );
+                        continue;
+                    }
+
+                    $envFileMessages[] = sprintf("Writing env file to %s", $envFileName);
+                    $site->update(['ENVSignature' => $thisENV->getENVSignature()])->write();
+                    $site->publishSingle();
+                }
+            } elseif ($site->EnableZeroDowntime && $site->hasEnvironmentVars()) {
+                $fsHelper->ensureENVLink($site);
+            }
+        }
+
+        $this->addMessage("------------------------------------");
+        $this->addMessage("ENV files");
+        $this->addMessage($envFileMessages
+            ? implode("<br>", $envFileMessages)
+            : 'No ENV files required updating.');
+        $this->addMessage("------------------------------------");
+
     }
 
     private function getGlobalBlock()

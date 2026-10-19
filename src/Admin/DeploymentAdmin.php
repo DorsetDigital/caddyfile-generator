@@ -33,6 +33,7 @@ class DeploymentAdmin extends LeftAndMain
 
     private static $allowed_actions = [
         'runProcess',
+        'syncENVFiles',
         'syncFarpoint',
         'syncGatekeeper',
     ];
@@ -40,6 +41,7 @@ class DeploymentAdmin extends LeftAndMain
     public function getEditForm($id = null, $fields = null)
     {
         $runUrl = $this->Link('runProcess');
+        $syncENVFilesUrl = $this->Link('syncENVFiles');
         $syncFarpointUrl = $this->Link('syncFarpoint');
         $syncGatekeeperUrl = $this->Link('syncGatekeeper');
 
@@ -62,6 +64,13 @@ class DeploymentAdmin extends LeftAndMain
             'type' => 'button',
         ], 'Build and push configuration (Dry Run)');
 
+        $envButton = HTML::createTag('button', [
+            'class' => 'btn btn-outline-primary process-env-sync',
+            'id' => 'sync-env-btn',
+            'data-url' => $syncENVFilesUrl,
+            'type' => 'button',
+        ], 'Write ENV files');
+
         $syncButton = HTML::createTag('button', [
             'class' => 'btn btn-outline-primary process-farpoint-sync',
             'id' => 'sync-farpoint-btn',
@@ -79,7 +88,7 @@ class DeploymentAdmin extends LeftAndMain
         $actions = FieldList::create(
             LiteralField::create(
                 'run-button',
-                $btn1 . $btn2 . $syncButton . $syncGatekeeperButton
+                $btn1 . $btn2 . $envButton . $syncButton . $syncGatekeeperButton
             )
         );
 
@@ -97,6 +106,32 @@ class DeploymentAdmin extends LeftAndMain
         Requirements::javascript('dorsetdigital/caddyfile-generator:client/javascript/deployment.js');
 
         return $form;
+    }
+
+    public function syncENVFiles(HTTPRequest $request)
+    {
+        if (!$this->canView()) {
+            $this->jsonError(403, 'Permission denied');
+        }
+
+        if (!$request->isPOST()) {
+            $this->jsonError(405, 'Method not allowed');
+        }
+
+        try {
+            $helper = DeploymentHelper::create();
+            $helper->processENVFiles();
+
+            return HTTPResponse::create()
+                ->addHeader('Content-Type', 'application/json')
+                ->setBody(json_encode([
+                    'html' => $helper->getMessages(),
+                    'status' => 'success',
+                ]));
+        } catch (Exception $e) {
+            Injector::inst()->get(LoggerInterface::class)->error($e->getMessage());
+            $this->jsonError(500, $e->getMessage());
+        }
     }
 
     public function syncFarpoint(HTTPRequest $request)
