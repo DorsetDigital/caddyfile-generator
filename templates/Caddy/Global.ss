@@ -14,6 +14,14 @@
     header @images Cache-Control "public, max-age=31536000, immutable"
 }
 
+(block_unknown_php) {
+    @unknown_php {
+        path_regexp (?i)\\.php(?:/|$)
+        not path /index.php /index.php/*
+    }
+    respond @unknown_php 404
+}
+
 (block_wordpress) {
     @wordpress path /wp-admin /wp-admin/* /wp-login.php /wp-login.php/* /wp-content/* /wp-includes/* /xmlrpc.php
     respond @wordpress 404
