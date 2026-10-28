@@ -277,7 +277,7 @@ class VirtualHost extends DataObject
         if ($supportsServices && $this->getGatekeeperEnabled()) {
             $add('GK', '#446c91', 'Gatekeeper enabled');
         }
-        if ($isHost && $this->getRateLimitEnabled()) {
+        if ($supportsServices && $this->getRateLimitEnabled()) {
             $add('RL', '#7556a3', sprintf(
                 'Rate limiting: %d requests / %ds',
                 $this->getRateLimitEffectiveEvents(),
