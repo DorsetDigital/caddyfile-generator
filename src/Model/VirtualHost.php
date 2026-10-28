@@ -476,13 +476,13 @@ class VirtualHost extends DataObject
             );
         }
 
-        if ($isStandardHost) {
+        if ($supportsAccessControl) {
             $securityFields[] = HeaderField::create('PHPSecurity', 'PHP');
             $securityFields[] = CheckboxField::create(
                 'RejectUnknownPHP',
                 'Reject direct PHP script requests'
             )->setDescription(
-                'Return a 404 from Caddy for direct .php URLs other than /index.php, before they reach PHP-FPM. Enable only for sites that do not expose other PHP scripts.'
+                'Return a 404 from Caddy for direct .php URLs other than /index.php, before they reach PHP-FPM or the proxied origin. Enable only for sites that do not expose other PHP scripts.'
             );
         }
 
