@@ -26,6 +26,7 @@ use SilverStripe\Forms\LiteralField;
 use SilverStripe\Forms\NumericField;
 use SilverStripe\Forms\TextareaField;
 use SilverStripe\Forms\TextField;
+use SilverStripe\ORM\FieldType\DBHTMLText;
 use SilverStripe\ORM\DataList;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\SiteConfig\SiteConfig;
@@ -223,7 +224,7 @@ class VirtualHost extends DataObject
         'HostName' => 'Hostname',
         'HostTypeName' => 'Site Type',
         'SiteModeName' => 'Mode',
-        'EnableWAF.Nice' => 'WAF',
+        'ServiceIndicators' => 'Services',
     ];
 
     private static $cascade_deletes = [
@@ -247,6 +248,57 @@ class VirtualHost extends DataObject
         return self::get()->filter([
             'HostType' => self::HOST_TYPE_HOST
         ]);
+    }
+
+    /**
+     * Compact, read-only overview for the virtual hosts GridField.
+     * Indicators reflect effective settings, including global feature switches.
+     */
+    public function getServiceIndicators(): DBHTMLText
+    {
+        $hostType = (int) $this->HostType;
+        $isHost = $hostType === self::HOST_TYPE_HOST;
+        $isProxy = $hostType === self::HOST_TYPE_PROXY;
+        $supportsServices = $isHost || $isProxy;
+        $indicators = [];
+
+        $add = static function (string $label, string $colour, string $description) use (&$indicators): void {
+            $indicators[] = sprintf(
+                '<span title="%s" style="display:inline-block;white-space:nowrap;margin:1px 3px 1px 0;padding:2px 6px;border-radius:4px;background:%s;color:#fff;font-size:11px;font-weight:600">%s</span>',
+                htmlspecialchars($description, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                $colour,
+                htmlspecialchars($label, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+            );
+        };
+
+        if ($supportsServices && $this->getWAFEnabled()) {
+            $add('WAF', '#5b6470', 'Web Application Firewall enabled');
+        }
+        if ($supportsServices && $this->getGatekeeperEnabled()) {
+            $add('GK', '#446c91', 'Gatekeeper enabled');
+        }
+        if ($supportsServices && $this->getRateLimitEnabled()) {
+            $add('RL', '#7556a3', sprintf(
+                'Rate limiting: %d requests / %ds',
+                $this->getRateLimitEffectiveEvents(),
+                $this->getRateLimitEffectiveWindow()
+            ));
+        }
+        if ($this->UptimeMonitorEnabled) {
+            $add('MON', '#42836b', 'Uptime monitoring enabled');
+        }
+        if ($supportsServices && $this->RejectUnknownPHP) {
+            $add('PHP 404', '#a16a37', 'Direct PHP script requests rejected at Caddy');
+        }
+        if ($isHost && $this->EnablePHP && $this->PHPBackendID > 0 && $this->PHPBackend()->exists()) {
+            $add($this->PHPBackend()->Title ?: 'PHP', '#536779', 'Configured PHP backend');
+        }
+
+        $value = $indicators
+            ? implode(' ', $indicators)
+            : '<span style="color:#777" title="No enabled services shown">—</span>';
+
+        return DBHTMLText::create()->setValue($value);
     }
 
     public function getCMSFields()
