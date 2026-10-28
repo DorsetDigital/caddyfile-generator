@@ -51,6 +51,7 @@ use UncleCheese\DisplayLogic\Forms\Wrapper;
  * @property bool $EnableHTTPS
  * @property bool $CacheAssets
  * @property bool $AllowWordPressRoutes
+ * @property bool $RejectUnknownPHP
  * @property int $TLSMethod
  * @property ?string $DocumentRoot
  * @property ?string $SiteProxy
@@ -147,6 +148,7 @@ class VirtualHost extends DataObject
         'EnableHTTPS' => 'Boolean',
         'CacheAssets' => 'Boolean',
         'AllowWordPressRoutes' => 'Boolean',
+        'RejectUnknownPHP' => 'Boolean',
         'TLSMethod' => 'Int',
         'DocumentRoot' => 'Varchar',
         'SiteProxy' => 'Varchar',
@@ -207,6 +209,7 @@ class VirtualHost extends DataObject
         'EnableHTTPS' => true,
         'EnableZeroDowntime' => true,
         'AllowWordPressRoutes' => false,
+        'RejectUnknownPHP' => false,
         'RateLimitMode' => self::RATE_LIMIT_INHERIT,
         'EnableGatekeeper' => false,
         'GatekeeperProtectedPaths' => "/admin\n/Security",
@@ -470,6 +473,16 @@ class VirtualHost extends DataObject
                 'Allow WordPress routes'
             )->setDescription(
                 'Allows requests to common WordPress paths including /wp-admin, /wp-login.php, /wp-content, /wp-includes and /xmlrpc.php. Leave disabled unless this host serves or proxies a WordPress site.'
+            );
+        }
+
+        if ($supportsAccessControl) {
+            $securityFields[] = HeaderField::create('PHPSecurity', 'PHP');
+            $securityFields[] = CheckboxField::create(
+                'RejectUnknownPHP',
+                'Reject direct PHP script requests'
+            )->setDescription(
+                'Return a 404 from Caddy for direct .php URLs other than /index.php, before they reach PHP-FPM or the proxied origin. Enable only for sites that do not expose other PHP scripts.'
             );
         }
 
