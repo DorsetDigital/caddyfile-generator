@@ -1,7 +1,7 @@
 $CurrentHostName<% if not $EnableHTTPS %>:80<% end_if %> {
     log access
 <% if not $AllowWordPressRoutes %>    import block_wordpress<% end_if %>
-<% if $EnablePHP && $RejectUnknownPHP %>    import block_unknown_php<% end_if %>
+<% if $RejectUnknownPHP %>    import block_unknown_php<% end_if %>
 <% if $CacheAssets %>    import cache_static<% end_if %>
 <% if $NeedsTLSConfig %><% include Caddy\TLS %>
 <% end_if %>
