@@ -6,7 +6,7 @@ AWS or stores AWS credentials.
 
 ## Workflow
 
-1. Set the AWS region, ECS cluster ARN, capacity provider, scheduler execution role ARN, subnet and security-group IDs in **SiteConfig → Scheduled Tasks**. No defaults are populated by the module.\n2. Configure the PHP backend record with its scheduled ECS task definition and exact container name.\n2. Create a task and select an existing PHP-enabled virtual host.
+1. Set the AWS region, ECS cluster ARN, capacity provider, execution role ARN, subnet, security groups, schedule group, timezone and process UID/GID in **SiteConfig → Scheduled Tasks**. No defaults are populated by the module.\n2. Configure the PHP backend record with its scheduled ECS task definition and exact container name.\n2. Create a task and select an existing PHP-enabled virtual host.
 4. Enter a unique EventBridge schedule name, e.g. `Example-Queue`.
 5. Enter the command relative to the site's deployment directory, e.g.
    `vendor/bin/sake dev/tasks/ProcessJobQueueTask`. Do **not** enter `cd` or
@@ -28,14 +28,16 @@ yet been confirmed in AWS.
 The generator uses the host's configured Filesystem and DocumentRoot, plus
 `/current` for zero-downtime deployments. It deliberately excludes
 `DocumentRootSuffix` (for example, `public`), because Silverstripe `sake`
-runs from the project root. Only NFS-backed standard hosts are supported.
+runs from the project root. Filesystem roots come from the associated host's
+configured Filesystem; no hard-coded mount prefix is assumed.
 
 ## AWS configuration
 
-All installation-specific AWS settings are stored in SiteConfig under the
+All installation-specific settings are stored in SiteConfig under the
 **Scheduled Tasks** tab: region, ECS cluster ARN, capacity provider, execution
-role ARN, subnet ID and security group IDs (one per line). No account IDs,
-ARNs, resource names, network IDs or PHP-version mappings are stored in the
+role ARN, subnet ID, security group IDs (one per line), schedule group,
+timezone, and process UID/GID. No account IDs, ARNs, resource names,
+network IDs, process identities or PHP-version mappings are stored in the
 module. The generator refuses to produce commands until these settings are
 completed and validated.
 
