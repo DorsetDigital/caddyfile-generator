@@ -86,7 +86,10 @@ class ScheduledTask extends DataObject
     public function getCMSFields()
     {
         $fields = parent::getCMSFields();
-        $fields->removeByName('RecordedAWSVersion');
+        $fields->removeByName([
+            'ScheduleName', 'Description', 'Command', 'ScheduleExpression',
+            'Enabled', 'RecordedAWSVersion', 'VirtualHostID',
+        ]);
 
         $fields->addFieldToTab('Root.Main',
             DropdownField::create(
@@ -100,6 +103,9 @@ class ScheduledTask extends DataObject
         );
         $fields->addFieldToTab('Root.Main',
             TextField::create('ScheduleName', 'EventBridge schedule name')
+        );
+        $fields->addFieldToTab('Root.Main',
+            TextField::create('Description', 'Description')
         );
         $fields->addFieldToTab('Root.Main',
             TextareaField::create('Command', 'Task command')
