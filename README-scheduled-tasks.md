@@ -1,0 +1,51 @@
+# Scheduled Tasks (CLI generation only)
+
+The **Scheduled Tasks** section in the CMS stores local schedule definitions and
+generates scripts for AWS EventBridge Scheduler. The web application never contacts
+AWS or stores AWS credentials.
+
+## Workflow
+
+1. Create a task and select an existing PHP-enabled virtual host.
+2. Enter a unique EventBridge schedule name, e.g. `Example-Queue`.
+3. Enter the command relative to the site's deployment directory, e.g.
+   `vendor/bin/sake dev/tasks/ProcessJobQueueTask`. Do **not** enter `cd` or
+   `setpriv`: the generator adds those.
+4. Enter a rate or cron expression (e.g. `rate(5 minutes)` or `cron(10 0 * * ? *)`).
+5. Save the record. The **Commands** tab shows separate create and update scripts.
+6. Run the appropriate script manually in an authenticated AWS CLI environment.
+   Review the generated payload and AWS CLI output before considering it applied.
+7. Only **after independently verifying AWS**, set **Recorded AWS PHP version**
+   to the version actually deployed. This is an operator-maintained value, not a
+   live status check.
+
+The Scheduled Tasks grid and virtual-host service badges highlight records whose
+host PHP version differs from the manually recorded version, or which have not
+yet been confirmed in AWS.
+
+## Working directory
+
+The generator uses the host's configured Filesystem and DocumentRoot, plus
+`/current` for zero-downtime deployments. It deliberately excludes
+`DocumentRootSuffix` (for example, `public`), because Silverstripe `sake`
+runs from the project root. Only NFS-backed standard hosts are supported.
+
+## AWS configuration
+
+`_config/scheduler.yml` holds the known-good dedicated ECS cluster, capacity
+provider, networking, role, and PHP task-definition/container mappings.
+
+Initially **only PHP 8.1 and 8.3 are mapped**. Other versions raise a visible
+error rather than guessing container names. Confirm the scheduled task definition
+and its exact container name before extending the mapping.
+
+## Existing schedules
+
+This feature does **not** import existing AWS schedules. Existing schedules can
+be entered as local records, then marked with their confirmed deployed PHP
+version. **Create** is for new schedules; **Update** fetches the current AWS
+schedule and applies the locally managed fields while preserving other retrieved
+configuration. Review the generated script before executing it.
+
+No AWS write operations are invoked from the CMS. Generating a command never
+automatically changes the recorded deployed version.
