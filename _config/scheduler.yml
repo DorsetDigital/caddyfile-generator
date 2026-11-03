@@ -1,0 +1,27 @@
+---
+Name: caddy-scheduler-cli
+After:
+  - '#caddygenerator'
+---
+
+# Known-good, CLI-only ECS Scheduler settings.
+# Add further PHP versions only after confirming their ECS task
+# definition and container override names (these are not interchangeable).
+DorsetDigital\Caddy\Helper\SchedulerCommandGenerator:
+  aws:
+    region: eu-west-2
+    cluster: 'arn:aws:ecs:eu-west-2:925510192693:cluster/php-scheduled-cluster'
+    capacity_provider: php-scheduled-ec2
+    role: 'arn:aws:iam::925510192693:role/service-role/Amazon_EventBridge_Scheduler_ECS_aaa5fe0bd4'
+    subnet: subnet-02ac19ff21f5f7d43
+    security_groups:
+      - sg-03dce64b5834f9068
+      - sg-0e1c9d1c4f63b1b83
+      - sg-016cbd44ac0623dc5
+    php:
+      '8.1':
+        task_definition: 'arn:aws:ecs:eu-west-2:925510192693:task-definition/php-scheduled-8-1'
+        container: php-fpm-81-ecs
+      '8.3':
+        task_definition: 'arn:aws:ecs:eu-west-2:925510192693:task-definition/php-scheduled-8-3'
+        container: php-fpm-83
