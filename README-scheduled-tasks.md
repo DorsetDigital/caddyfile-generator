@@ -6,16 +6,16 @@ AWS or stores AWS credentials.
 
 ## Workflow
 
-1. Create a task and select an existing PHP-enabled virtual host.
-2. Enter a unique EventBridge schedule name, e.g. `Example-Queue`.
-3. Enter the command relative to the site's deployment directory, e.g.
+1. Configure the PHP backend record with its scheduled ECS task definition and exact container name.\n2. Create a task and select an existing PHP-enabled virtual host.
+3. Enter a unique EventBridge schedule name, e.g. `Example-Queue`.
+4. Enter the command relative to the site's deployment directory, e.g.
    `vendor/bin/sake dev/tasks/ProcessJobQueueTask`. Do **not** enter `cd` or
    `setpriv`: the generator adds those.
-4. Enter a rate or cron expression (e.g. `rate(5 minutes)` or `cron(10 0 * * ? *)`).
-5. Save the record. The **Commands** tab shows separate create and update scripts.
-6. Run the appropriate script manually in an authenticated AWS CLI environment.
+5. Enter a rate or cron expression (e.g. `rate(5 minutes)` or `cron(10 0 * * ? *)`).
+6. Save the record. The **Commands** tab shows separate create and update scripts.
+7. Run the appropriate script manually in an authenticated AWS CLI environment.
    Review the generated payload and AWS CLI output before considering it applied.
-7. Only **after independently verifying AWS**, set **Recorded AWS PHP version**
+8. Only **after independently verifying AWS**, set **Recorded AWS PHP version**
    to the version actually deployed. This is an operator-maintained value, not a
    live status check.
 
@@ -33,11 +33,9 @@ runs from the project root. Only NFS-backed standard hosts are supported.
 ## AWS configuration
 
 `_config/scheduler.yml` holds the known-good dedicated ECS cluster, capacity
-provider, networking, role, and PHP task-definition/container mappings.
+provider, networking and shared execution role. The ECS task definition and\ncontainer override name come directly from each host's PHPBackend record.
 
-Initially **only PHP 8.1 and 8.3 are mapped**. Other versions raise a visible
-error rather than guessing container names. Confirm the scheduled task definition
-and its exact container name before extending the mapping.
+There is no version-specific mapping in the module. Configure these fields on\neach PHPBackend. If either is missing, the generator refuses to produce commands.
 
 ## Existing schedules
 
