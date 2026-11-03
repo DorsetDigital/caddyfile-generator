@@ -5,7 +5,7 @@ namespace DorsetDigital\Caddy\Helper;
 use DorsetDigital\Caddy\Model\ScheduledTask;
 use DorsetDigital\Caddy\Model\VirtualHost;
 use RuntimeException;
-use SilverStripe\Core\Config\Config;
+use SilverStripe\SiteConfig\SiteConfig;
 use SilverStripe\Core\Injector\Injectable;
 
 /**
@@ -15,7 +15,36 @@ class SchedulerCommandGenerator
 {
     use Injectable;
 
-    private static $aws = [];
+    private function settings(): array
+    {
+        $config = SiteConfig::current_site_config();
+        $groups = preg_split('/[\\s,]+/', trim((string) $config->SchedulerSecurityGroupIDs), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $settings = [
+            'region' => trim((string) $config->SchedulerRegion),
+            'cluster' => trim((string) $config->SchedulerClusterArn),
+            'capacity_provider' => trim((string) $config->SchedulerCapacityProvider),
+            'role' => trim((string) $config->SchedulerExecutionRoleArn),
+            'subnet' => trim((string) $config->SchedulerSubnetID),
+            'security_groups' => $groups,
+        ];
+        foreach ($settings as $key => $value) {
+            if (empty($value)) {
+                throw new RuntimeException("Missing SiteConfig Scheduler setting: {$key}");
+            }
+        }
+        if (!preg_match('/^[a-z]{2}-[a-z]+-[0-9]+$/', $settings['region'])
+            || !preg_match('/^arn:aws[a-z-]*:ecs:[^:]+:[0-9]{12}:cluster\\/[A-Za-z0-9_-]+$/', $settings['cluster'])
+            || !preg_match('/^arn:aws[a-z-]*:iam::[0-9]{12}:role\\/.+$/', $settings['role'])
+            || !preg_match('/^subnet-[a-f0-9]+$/', $settings['subnet'])) {
+            throw new RuntimeException('Invalid Scheduler region, cluster ARN, role ARN or subnet in SiteConfig.');
+        }
+        foreach ($groups as $group) {
+            if (!preg_match('/^sg-[a-f0-9]+$/', $group)) {
+                throw new RuntimeException('Invalid Scheduler security group ID in SiteConfig.');
+            }
+        }
+        return $settings;
+    }
 
     public function phpVersion(VirtualHost $host): string
     {
@@ -50,7 +79,7 @@ class SchedulerCommandGenerator
         if (!$host || !$host->exists()) {
             throw new RuntimeException('Select a virtual host.');
         }
-        $settings = Config::inst()->get(self::class, 'aws') ?: [];
+        $settings = $this->settings();
         if (!$host->EnablePHP || !$host->PHPBackendID || !$host->PHPBackend()->exists()) {
             throw new RuntimeException('The selected host has no PHP backend.');
         }
@@ -63,11 +92,6 @@ class SchedulerCommandGenerator
         if (!preg_match('/^[A-Za-z0-9:_\/.\-]+$/', $taskDefinition)
             || !preg_match('/^[A-Za-z0-9_-]+$/', $containerName)) {
             throw new RuntimeException('Invalid task definition or container name on the PHP backend.');
-        }
-        foreach (['region', 'cluster', 'capacity_provider', 'role', 'subnet', 'security_groups'] as $key) {
-            if (empty($settings[$key])) {
-                throw new RuntimeException("Missing Scheduler configuration: {$key}");
-            }
         }
 
         $name = trim((string) $task->ScheduleName);
@@ -134,7 +158,7 @@ class SchedulerCommandGenerator
     public function script(ScheduledTask $task, bool $update = false): string
     {
         $payload = $this->payload($task);
-        $region = Config::inst()->get(self::class, 'aws')['region'];
+        $region = $this->settings()['region'];
         $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         $header = "#!/usr/bin/env bash\nset -euo pipefail\n";
         $header .= "PAYLOAD=\$(mktemp)\ntrap 'rm -f \"\$PAYLOAD\"' EXIT\n";
