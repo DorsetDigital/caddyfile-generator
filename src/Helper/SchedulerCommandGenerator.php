@@ -100,7 +100,7 @@ class SchedulerCommandGenerator
         }
         if (!preg_match('/^[A-Za-z0-9:_\/.\-]+$/', $taskDefinition)
             || !preg_match('/^[A-Za-z0-9_-]+$/', $containerName)) {
-            throw new RuntimeException('Invalid task definition or container name on the PHP backend.');
+            throw new RuntimeException('Enter a full ECS task definition ARN and a valid container name on the PHP backend.');
         }
 
         $name = trim((string) $task->ScheduleName);
