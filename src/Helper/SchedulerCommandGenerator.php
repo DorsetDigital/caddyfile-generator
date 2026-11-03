@@ -50,11 +50,19 @@ class SchedulerCommandGenerator
         if (!$host || !$host->exists()) {
             throw new RuntimeException('Select a virtual host.');
         }
-        $version = $this->phpVersion($host);
         $settings = Config::inst()->get(self::class, 'aws') ?: [];
-        $php = $settings['php'][$version] ?? null;
-        if (!$php || empty($php['task_definition']) || empty($php['container'])) {
-            throw new RuntimeException("No verified ECS task definition/container mapping for PHP {$version}. Configure it before generating CLI.");
+        if (!$host->EnablePHP || !$host->PHPBackendID || !$host->PHPBackend()->exists()) {
+            throw new RuntimeException('The selected host has no PHP backend.');
+        }
+        $backend = $host->PHPBackend();
+        $taskDefinition = trim((string) $backend->ScheduledTaskDefinition);
+        $containerName = trim((string) $backend->ScheduledContainerName);
+        if ($taskDefinition === '' || $containerName === '') {
+            throw new RuntimeException('Configure the scheduled ECS task definition and container name on the host PHP backend.');
+        }
+        if (!preg_match('/^[A-Za-z0-9:_\/.\-]+$/', $taskDefinition)
+            || !preg_match('/^[A-Za-z0-9_-]+$/', $containerName)) {
+            throw new RuntimeException('Invalid task definition or container name on the PHP backend.');
         }
         foreach (['region', 'cluster', 'capacity_provider', 'role', 'subnet', 'security_groups'] as $key) {
             if (empty($settings[$key])) {
@@ -92,7 +100,7 @@ class SchedulerCommandGenerator
                 'RoleArn' => $settings['role'],
                 'Input' => json_encode([
                     'containerOverrides' => [[
-                        'name' => $php['container'],
+                        'name' => $containerName,
                         'command' => ['/bin/sh', '-c', $shell],
                     ]],
                 ], JSON_THROW_ON_ERROR),
@@ -117,7 +125,7 @@ class SchedulerCommandGenerator
                         ],
                     ],
                     'TaskCount' => 1,
-                    'TaskDefinitionArn' => $php['task_definition'],
+                    'TaskDefinitionArn' => $taskDefinition,
                 ],
             ],
         ];
