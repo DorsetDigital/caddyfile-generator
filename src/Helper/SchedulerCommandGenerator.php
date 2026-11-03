@@ -6,12 +6,15 @@ use DorsetDigital\Caddy\Model\ScheduledTask;
 use DorsetDigital\Caddy\Model\VirtualHost;
 use RuntimeException;
 use SilverStripe\Core\Config\Config;
+use SilverStripe\Core\Injector\Injectable;
 
 /**
  * Produces copy/paste AWS CLI scripts. Deliberately makes NO AWS requests.
  */
 class SchedulerCommandGenerator
 {
+    use Injectable;
+
     private static $aws = [];
 
     public function phpVersion(VirtualHost $host): string
