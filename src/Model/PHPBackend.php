@@ -50,7 +50,7 @@ class PHPBackend extends DataObject
 
         $fields->addFieldsToTab('Root.ScheduledTasks', [
             TextField::create('ScheduledTaskDefinition', 'ECS scheduled task definition')
-                ->setDescription('Task definition ARN or family, e.g. php-scheduled-8-3.'),
+                ->setDescription('Full ECS task definition ARN (without a revision to follow the latest ACTIVE revision), e.g. arn:aws:ecs:REGION:ACCOUNT_ID:task-definition/TASK_FAMILY.'),
             TextField::create('ScheduledContainerName', 'ECS container name')
                 ->setDescription('Exact container name in the ECS task definition, e.g. php-fpm-83.'),
         ]);
