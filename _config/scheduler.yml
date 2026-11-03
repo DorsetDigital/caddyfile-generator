@@ -4,9 +4,9 @@ After:
   - '#caddygenerator'
 ---
 
-# Known-good, CLI-only ECS Scheduler settings.
-# Add further PHP versions only after confirming their ECS task
-# definition and container override names (these are not interchangeable).
+# CLI-only ECS Scheduler settings.
+# Per-PHP-version ECS task definition and container names are configured
+# on the PHPBackend records in the CMS.
 DorsetDigital\Caddy\Helper\SchedulerCommandGenerator:
   aws:
     region: eu-west-2
@@ -18,10 +18,3 @@ DorsetDigital\Caddy\Helper\SchedulerCommandGenerator:
       - sg-03dce64b5834f9068
       - sg-0e1c9d1c4f63b1b83
       - sg-016cbd44ac0623dc5
-    php:
-      '8.1':
-        task_definition: 'arn:aws:ecs:eu-west-2:925510192693:task-definition/php-scheduled-8-1'
-        container: php-fpm-81-ecs
-      '8.3':
-        task_definition: 'arn:aws:ecs:eu-west-2:925510192693:task-definition/php-scheduled-8-3'
-        container: php-fpm-83
