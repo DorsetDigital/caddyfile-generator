@@ -6,16 +6,16 @@ AWS or stores AWS credentials.
 
 ## Workflow
 
-1. Configure the PHP backend record with its scheduled ECS task definition and exact container name.\n2. Create a task and select an existing PHP-enabled virtual host.
-3. Enter a unique EventBridge schedule name, e.g. `Example-Queue`.
-4. Enter the command relative to the site's deployment directory, e.g.
+1. Set the AWS region, ECS cluster ARN, capacity provider, scheduler execution role ARN, subnet and security-group IDs in **SiteConfig → Scheduled Tasks**. No defaults are populated by the module.\n2. Configure the PHP backend record with its scheduled ECS task definition and exact container name.\n2. Create a task and select an existing PHP-enabled virtual host.
+4. Enter a unique EventBridge schedule name, e.g. `Example-Queue`.
+5. Enter the command relative to the site's deployment directory, e.g.
    `vendor/bin/sake dev/tasks/ProcessJobQueueTask`. Do **not** enter `cd` or
    `setpriv`: the generator adds those.
-5. Enter a rate or cron expression (e.g. `rate(5 minutes)` or `cron(10 0 * * ? *)`).
-6. Save the record. The **Commands** tab shows separate create and update scripts.
-7. Run the appropriate script manually in an authenticated AWS CLI environment.
+6. Enter a rate or cron expression (e.g. `rate(5 minutes)` or `cron(10 0 * * ? *)`).
+7. Save the record. The **Commands** tab shows separate create and update scripts.
+8. Run the appropriate script manually in an authenticated AWS CLI environment.
    Review the generated payload and AWS CLI output before considering it applied.
-8. Only **after independently verifying AWS**, set **Recorded AWS PHP version**
+9. Only **after independently verifying AWS**, set **Recorded AWS PHP version**
    to the version actually deployed. This is an operator-maintained value, not a
    live status check.
 
@@ -32,10 +32,15 @@ runs from the project root. Only NFS-backed standard hosts are supported.
 
 ## AWS configuration
 
-`_config/scheduler.yml` holds the known-good dedicated ECS cluster, capacity
-provider, networking and shared execution role. The ECS task definition and\ncontainer override name come directly from each host's PHPBackend record.
+All installation-specific AWS settings are stored in SiteConfig under the
+**Scheduled Tasks** tab: region, ECS cluster ARN, capacity provider, execution
+role ARN, subnet ID and security group IDs (one per line). No account IDs,
+ARNs, resource names, network IDs or PHP-version mappings are stored in the
+module. The generator refuses to produce commands until these settings are
+completed and validated.
 
-There is no version-specific mapping in the module. Configure these fields on\neach PHPBackend. If either is missing, the generator refuses to produce commands.
+Each PHPBackend stores its scheduled ECS task definition and container
+override name. If either is missing, generation fails with an explanatory error.
 
 ## Existing schedules
 
