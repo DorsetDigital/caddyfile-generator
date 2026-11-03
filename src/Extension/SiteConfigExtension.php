@@ -86,6 +86,10 @@ class SiteConfigExtension extends Extension
         'SchedulerExecutionRoleArn' => 'Varchar(255)',
         'SchedulerSubnetID' => 'Varchar(255)',
         'SchedulerSecurityGroupIDs' => 'Text',
+        'SchedulerTimezone' => 'Varchar(100)',
+        'SchedulerGroupName' => 'Varchar(64)',
+        'SchedulerRunUID' => 'Int',
+        'SchedulerRunGID' => 'Int',
     ];
 
     private static $defaults = [
@@ -226,6 +230,12 @@ class SiteConfigExtension extends Extension
             TextareaField::create('SchedulerSecurityGroupIDs', 'ECS task security group IDs')
                 ->setRows(3)
                 ->setDescription('One security group ID per line.'),
+            TextField::create('SchedulerTimezone', 'Schedule timezone')
+                ->setDescription('IANA timezone, e.g. Europe/London.'),
+            TextField::create('SchedulerGroupName', 'EventBridge schedule group')
+                ->setDescription('Existing EventBridge schedule group name.'),
+            NumericField::create('SchedulerRunUID', 'Task process UID')->setScale(0),
+            NumericField::create('SchedulerRunGID', 'Task process GID')->setScale(0),
         ]);
 
         $fields->addFieldsToTab('Root.PHPBackends', [
