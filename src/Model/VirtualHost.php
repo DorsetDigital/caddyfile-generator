@@ -199,6 +199,7 @@ class VirtualHost extends DataObject
         'RedirectRules' => RedirectRule::class,
         'ENVVars' => ENVVar::class,
         'GatekeeperAccessRules' => GatekeeperAccessRule::class,
+        'ScheduledTasks' => ScheduledTask::class,
     ];
 
     private static $owns = [
@@ -292,6 +293,25 @@ class VirtualHost extends DataObject
         }
         if ($isHost && $this->EnablePHP && $this->PHPBackendID > 0 && $this->PHPBackend()->exists()) {
             $add($this->PHPBackend()->Title ?: 'PHP', '#536779', 'Configured PHP backend');
+        }
+        if ($isHost) {
+            $tasks = $this->ScheduledTasks();
+            if ($tasks->exists()) {
+                $needsReview = false;
+                foreach ($tasks as $task) {
+                    if ($task->getPHPStatus() !== 'Matches recorded AWS version') {
+                        $needsReview = true;
+                        break;
+                    }
+                }
+                $add(
+                    'SCH ' . $tasks->count(),
+                    $needsReview ? '#a16a37' : '#42836b',
+                    $needsReview
+                        ? 'Scheduled tasks require deployment confirmation or PHP version review'
+                        : 'Scheduled tasks match their recorded AWS PHP versions'
+                );
+            }
         }
 
         $value = $indicators
