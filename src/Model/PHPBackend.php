@@ -7,6 +7,7 @@ use SilverStripe\Assets\Shortcodes\FileLinkTracking;
 use SilverStripe\CMS\Model\SiteTreeLinkTracking;
 use SilverStripe\Forms\HeaderField;
 use SilverStripe\Forms\LiteralField;
+use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\DataList;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\Versioned\RecursivePublishable;
@@ -30,6 +31,8 @@ class PHPBackend extends DataObject
     private static $db = [
         'Title' => 'Varchar',
         'URI' => 'Varchar',
+        'ScheduledTaskDefinition' => 'Varchar(255)',
+        'ScheduledContainerName' => 'Varchar(255)',
     ];
     private static $has_many = [
         'VirtualHosts' => VirtualHost::class,
@@ -43,6 +46,13 @@ class PHPBackend extends DataObject
         $fields = parent::getCMSFields();
         $fields->removeByName([
             'VirtualHosts',
+        ]);
+
+        $fields->addFieldsToTab('Root.ScheduledTasks', [
+            TextField::create('ScheduledTaskDefinition', 'ECS scheduled task definition')
+                ->setDescription('Task definition ARN or family, e.g. php-scheduled-8-3.'),
+            TextField::create('ScheduledContainerName', 'ECS container name')
+                ->setDescription('Exact container name in the ECS task definition, e.g. php-fpm-83.'),
         ]);
 
         $virtualHosts = $this->VirtualHosts();
