@@ -26,9 +26,13 @@ class SchedulerCommandGenerator
             'role' => trim((string) $config->SchedulerExecutionRoleArn),
             'subnet' => trim((string) $config->SchedulerSubnetID),
             'security_groups' => $groups,
+            'timezone' => trim((string) $config->SchedulerTimezone),
+            'schedule_group' => trim((string) $config->SchedulerGroupName),
+            'run_uid' => (int) $config->SchedulerRunUID,
+            'run_gid' => (int) $config->SchedulerRunGID,
         ];
         foreach ($settings as $key => $value) {
-            if (empty($value)) {
+            if ($value === '' || $value === null || $value === []) {
                 throw new RuntimeException("Missing SiteConfig Scheduler setting: {$key}");
             }
         }
@@ -37,6 +41,11 @@ class SchedulerCommandGenerator
             || !preg_match('/^arn:aws[a-z-]*:iam::[0-9]{12}:role\\/.+$/', $settings['role'])
             || !preg_match('/^subnet-[a-f0-9]+$/', $settings['subnet'])) {
             throw new RuntimeException('Invalid Scheduler region, cluster ARN, role ARN or subnet in SiteConfig.');
+        }
+        if ($settings['run_uid'] < 1 || $settings['run_gid'] < 1
+            || !preg_match('/^[A-Za-z0-9_-]{1,64}$/', $settings['schedule_group'])
+            || !in_array($settings['timezone'], \DateTimeZone::listIdentifiers(), true)) {
+            throw new RuntimeException('Invalid scheduler group, timezone, UID or GID in SiteConfig.');
         }
         foreach ($groups as $group) {
             if (!preg_match('/^sg-[a-f0-9]+$/', $group)) {
@@ -67,8 +76,8 @@ class SchedulerCommandGenerator
             throw new RuntimeException('Select a standard host with a document root.');
         }
         $root = FilesystemHelper::create()->getFullHostPath($host);
-        if (!str_starts_with($root, '/mnt/nfs/')) {
-            throw new RuntimeException('This host is not on the scheduled workers\' NFS mount.');
+        if (!str_starts_with($root, '/') || str_contains($root, "\n") || str_contains($root, "\r")) {
+            throw new RuntimeException('Host filesystem root must be an absolute path.');
         }
         return rtrim($root, '/') . ($host->EnableZeroDowntime ? '/current' : '');
     }
@@ -108,16 +117,17 @@ class SchedulerCommandGenerator
         }
 
         $shell = 'cd ' . escapeshellarg($this->siteRoot($host))
-            . ' && exec setpriv --reuid=1000 --regid=1000 --clear-groups ' . $command;
+            . ' && exec setpriv --reuid=' . $settings['run_uid']
+            . ' --regid=' . $settings['run_gid'] . ' --clear-groups ' . $command;
 
         return [
             'Name' => $name,
-            'GroupName' => 'default',
+            'GroupName' => $settings['schedule_group'],
             'Description' => (string) ($task->Description ?: "Runs {$name}"),
             'State' => $task->Enabled ? 'ENABLED' : 'DISABLED',
             'ActionAfterCompletion' => 'NONE',
             'ScheduleExpression' => $expression,
-            'ScheduleExpressionTimezone' => 'Europe/London',
+            'ScheduleExpressionTimezone' => $settings['timezone'],
             'FlexibleTimeWindow' => ['Mode' => 'OFF'],
             'Target' => [
                 'Arn' => $settings['cluster'],
@@ -173,7 +183,7 @@ class SchedulerCommandGenerator
         $header .= "CURRENT=\$(mktemp)\nUPDATED=\$(mktemp)\n";
         $header .= "trap 'rm -f \"\$PAYLOAD\" \"\$CURRENT\" \"\$UPDATED\"' EXIT\n";
         $header .= 'aws scheduler get-schedule --name ' . escapeshellarg($payload['Name'])
-            . ' --group-name default --region ' . escapeshellarg($region)
+            . ' --group-name ' . escapeshellarg($payload['GroupName']) . ' --region ' . escapeshellarg($region)
             . ' > "$CURRENT"' . "\n";
         $header .= <<<'SHELL'
 jq --slurpfile desired "$PAYLOAD" '
