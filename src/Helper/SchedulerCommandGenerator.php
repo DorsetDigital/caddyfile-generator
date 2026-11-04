@@ -137,7 +137,7 @@ class SchedulerCommandGenerator
                         'name' => $containerName,
                         'command' => ['/bin/sh', '-c', $shell],
                     ]],
-                ], JSON_THROW_ON_ERROR),
+                ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
                 'RetryPolicy' => [
                     'MaximumEventAgeInSeconds' => 86400,
                     'MaximumRetryAttempts' => 0,
