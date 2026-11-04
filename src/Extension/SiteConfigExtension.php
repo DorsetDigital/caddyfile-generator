@@ -80,6 +80,16 @@ class SiteConfigExtension extends Extension
         'FarpointMinBodyBytes' => 'Int',
         'FarpointMustContain' => 'Text',
         'FarpointMustNotContain' => 'Text',
+        'SchedulerRegion' => 'Varchar(32)',
+        'SchedulerClusterArn' => 'Varchar(255)',
+        'SchedulerCapacityProvider' => 'Varchar(255)',
+        'SchedulerExecutionRoleArn' => 'Varchar(255)',
+        'SchedulerSubnetID' => 'Varchar(255)',
+        'SchedulerSecurityGroupIDs' => 'Text',
+        'SchedulerTimezone' => 'Varchar(100)',
+        'SchedulerGroupName' => 'Varchar(64)',
+        'SchedulerRunUID' => 'Int',
+        'SchedulerRunGID' => 'Int',
     ];
 
     private static $defaults = [
@@ -207,6 +217,25 @@ class SiteConfigExtension extends Extension
             )
                 ->setScale(0)
                 ->setDescription('Consecutive slow checks required before entering DEGRADED. The degraded threshold itself is configured per host.'),
+        ]);
+
+        $fields->addFieldsToTab('Root.ScheduledTasks', [
+            HeaderField::create('SchedulerSettings', 'EventBridge Scheduler (CLI generation only)'),
+            LiteralField::create('SchedulerInformation', '<p>These values are used only to generate AWS CLI scripts. The CMS does not connect to AWS.</p>'),
+            TextField::create('SchedulerRegion', 'AWS region'),
+            TextField::create('SchedulerClusterArn', 'ECS cluster ARN'),
+            TextField::create('SchedulerCapacityProvider', 'ECS capacity provider'),
+            TextField::create('SchedulerExecutionRoleArn', 'Scheduler execution role ARN'),
+            TextField::create('SchedulerSubnetID', 'ECS task subnet ID'),
+            TextareaField::create('SchedulerSecurityGroupIDs', 'ECS task security group IDs')
+                ->setRows(3)
+                ->setDescription('One security group ID per line.'),
+            TextField::create('SchedulerTimezone', 'Schedule timezone')
+                ->setDescription('IANA timezone, e.g. Europe/London.'),
+            TextField::create('SchedulerGroupName', 'EventBridge schedule group')
+                ->setDescription('Existing EventBridge schedule group name.'),
+            NumericField::create('SchedulerRunUID', 'Task process UID')->setScale(0),
+            NumericField::create('SchedulerRunGID', 'Task process GID')->setScale(0),
         ]);
 
         $fields->addFieldsToTab('Root.PHPBackends', [
