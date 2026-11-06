@@ -305,8 +305,8 @@ class VirtualHost extends DataObject
                     }
                 }
                 $add(
-                    'SCH ' . $tasks->count(),
-                    $needsReview ? '#a16a37' : '#42836b',
+                    'SCH',
+                    $needsReview ? '#c2410c' : '#42836b',
                     $needsReview
                         ? 'Scheduled tasks require deployment confirmation or PHP version review'
                         : 'Scheduled tasks match their recorded AWS PHP versions'
