@@ -305,7 +305,7 @@ class VirtualHost extends DataObject
                     }
                 }
                 $add(
-                    'SCH',
+                    'CRON',
                     $needsReview ? '#c2410c' : '#42836b',
                     $needsReview
                         ? 'Scheduled tasks require deployment confirmation or PHP version review'
