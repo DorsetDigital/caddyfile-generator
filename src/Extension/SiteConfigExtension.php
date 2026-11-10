@@ -60,6 +60,7 @@ class SiteConfigExtension extends Extension
         'RedisKeyPrefix' => 'Varchar',
         'TLSFilesCaddyRoot' => 'Varchar',
         'TLSFilesRoot' => 'Varchar',
+        'HoldingPagesRoot' => 'Varchar(255)',
         'ConfigPollingInterval' => 'Int',
         'ConfigURL' => 'Varchar',
         'EnableWAF' => 'Boolean',
@@ -140,6 +141,8 @@ class SiteConfigExtension extends Extension
                 ->setDescription('Absolute path to the TLS file storage root on THIS device'),
             TextField::create('TLSFilesCaddyRoot', 'Caddy TLS files root')
                 ->setDescription('Absolute path to the TLS file storage root inside a Caddy instance'),
+            TextField::create('HoldingPagesRoot', 'Holding pages root')
+                ->setDescription('Shared NFS directory, using the same absolute path in CMS and Caddy.'),
             HeaderField::create('Caddy Config'),
             TextField::create('ConfigURL', 'Config URL')
                 ->setDescription('Full URL of the dynamic caddy configuration endpoint'),

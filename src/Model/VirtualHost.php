@@ -181,7 +181,11 @@ class VirtualHost extends DataObject
         'DocumentRootSuffix' => 'Varchar',
         'AddSilverstripeDBENV' => 'Boolean',
         'CustomConfig' => 'Text',
-        'ENVSignature' => 'Varchar'
+        'ENVSignature' => 'Varchar',
+        'MaintenanceHTML' => 'Text(16777215)',
+        'ComingSoonHTML' => 'Text(16777215)',
+        'MaintenanceHTMLSignature' => 'Varchar(32)',
+        'ComingSoonHTMLSignature' => 'Varchar(32)'
     ];
 
     private static $has_one = [
@@ -330,7 +334,7 @@ class VirtualHost extends DataObject
         $fields->removeByName([
             'TLSKey', 'TLSCert', 'SSLCertificateID', 'AuthCredentialsID', 'RedirectRules',
             'UptimeMonitorID', 'PHPBackendID', 'DBCredentialsID', 'ENVVars', 'ENVSignature',
-            'FilesystemID', 'GatekeeperAccessRules'
+            'FilesystemID', 'GatekeeperAccessRules', 'MaintenanceHTMLSignature', 'ComingSoonHTMLSignature'
         ]);
 
         $absoluteRoot = '';
@@ -338,6 +342,15 @@ class VirtualHost extends DataObject
             $fsHelper = FilesystemHelper::create();
             $absoluteRoot = $fsHelper->getFullHostPath($this);
         }
+
+        $fields->addFieldsToTab('Root.HoldingPages', [
+            TextareaField::create('MaintenanceHTML', 'Custom maintenance HTML')
+                ->setRows(18)
+                ->setDescription('Optional complete, self-contained HTML document with inline styles and embedded images. Leave blank for the default maintenance page.'),
+            TextareaField::create('ComingSoonHTML', 'Custom coming-soon HTML')
+                ->setRows(18)
+                ->setDescription('Optional complete, self-contained HTML document with inline styles and embedded images. Leave blank for the default coming-soon page.'),
+        ]);
 
         $fields->addFieldsToTab('Root.Main', [
             TextField::create('Title', 'Friendly Name'),
@@ -1168,7 +1181,30 @@ class VirtualHost extends DataObject
             self::SITE_MODE_COMING => self::HOST_DIRECTORY_COMINGSOON
         };
 
+        if ($this->SiteMode !== self::SITE_MODE_PROD && $this->hasCustomHoldingPage()) {
+            return $this->getCustomHoldingPageRoot();
+        }
+
         return sprintf('/%s/%s', $basePath, $docRoot);
+    }
+
+    public function hasCustomHoldingPage(): bool
+    {
+        return match ($this->SiteMode) {
+            self::SITE_MODE_MAINTENANCE => trim((string) $this->MaintenanceHTML) !== '',
+            self::SITE_MODE_COMING => trim((string) $this->ComingSoonHTML) !== '',
+            default => false,
+        };
+    }
+
+    public function getCustomHoldingPageRoot(): string
+    {
+        $root = trim((string) SiteConfig::current_site_config()->HoldingPagesRoot);
+        if ($root === '' || $this->ID < 1) {
+            throw new \RuntimeException('Holding pages root is not configured or host has not been saved');
+        }
+        $mode = $this->SiteMode === self::SITE_MODE_MAINTENANCE ? 'maintenance' : 'coming-soon';
+        return rtrim($root, '/') . '/' . $this->ID . '/' . $mode;
     }
 
     public function getIsHTTPSUpstream()

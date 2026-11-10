@@ -25,6 +25,7 @@ class DeploymentHelper
         $monitorHelper = UptimeMonitorHelper::create();
         $fsHelper = FilesystemHelper::create();
         $envHelper = EnvHelper::create();
+        $holdingHelper = HoldingPageHelper::create();
 
         $fileContents = $this->getGlobalBlock();
         $allSites = Versioned::get_by_stage(VirtualHost::class, 'Live');
@@ -33,6 +34,8 @@ class DeploymentHelper
         /** @var VirtualHost $site */
         foreach ($allSites as $site) {
             if (!$this->dryRun) {
+                // Publish first: never activate a Caddy root that has not been written.
+                $holdingHelper->sync($site);
                 CaddyHelper::deployTLSFiles($site);
             }
             $fileContents .= CaddyHelper::buildServerBlock($site);
@@ -82,6 +85,7 @@ class DeploymentHelper
             $this->addMessage("DRY RUN - Not pushing to repository");
             $this->addMessage("DRY RUN - Not deploying TLS files");
             $this->addMessage("DRY RUN - Not deploying ENV files");
+            $this->addMessage("DRY RUN - Not deploying holding pages");
             $this->addMessage("DRY RUN - Not synchronising Gatekeeper");
             $this->addMessage("------------------------------------");
             $this->addMessage("Getting uptime monitor requirements...");
