@@ -64,6 +64,37 @@
         });
     });
 
+    $(document).on('click', '.process-holding-sync', function (e) {
+        e.preventDefault();
+
+        var button = $(this);
+        var originalText = button.text();
+        button.prop('disabled', true).text('Writing holding pages...');
+        $('#process-results').html('<p><em>Checking holding pages...</em></p>');
+
+        $.ajax({
+            url: button.data('url'),
+            type: 'POST',
+            dataType: 'json',
+            headers: {
+                'X-SecurityID': $('input[name="SecurityID"]').val()
+            },
+            success: function (response) {
+                $('#process-results').html(response.html || 'No holding page updates required.');
+            },
+            error: function (xhr, status, error) {
+                var message = (xhr.responseJSON && xhr.responseJSON.error) || error;
+                $('#process-results').html(
+                    '<div class="alert alert-danger">Holding page update failed: ' +
+                    $('<div>').text(message).html() + '</div>'
+                );
+            },
+            complete: function () {
+                button.prop('disabled', false).text(originalText);
+            }
+        });
+    });
+
     $(document).on('click', '.process-farpoint-sync', function (e) {
         e.preventDefault();
 
