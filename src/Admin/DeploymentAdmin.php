@@ -34,6 +34,7 @@ class DeploymentAdmin extends LeftAndMain
     private static $allowed_actions = [
         'runProcess',
         'syncENVFiles',
+        'syncHoldingPages',
         'syncFarpoint',
         'syncGatekeeper',
     ];
@@ -42,6 +43,7 @@ class DeploymentAdmin extends LeftAndMain
     {
         $runUrl = $this->Link('runProcess');
         $syncENVFilesUrl = $this->Link('syncENVFiles');
+        $syncHoldingPagesUrl = $this->Link('syncHoldingPages');
         $syncFarpointUrl = $this->Link('syncFarpoint');
         $syncGatekeeperUrl = $this->Link('syncGatekeeper');
 
@@ -71,6 +73,13 @@ class DeploymentAdmin extends LeftAndMain
             'type' => 'button',
         ], 'Write ENV files');
 
+        $holdingButton = HTML::createTag('button', [
+            'class' => 'btn btn-outline-primary process-holding-sync',
+            'id' => 'sync-holding-btn',
+            'data-url' => $syncHoldingPagesUrl,
+            'type' => 'button',
+        ], 'Write holding pages');
+
         $syncButton = HTML::createTag('button', [
             'class' => 'btn btn-outline-primary process-farpoint-sync',
             'id' => 'sync-farpoint-btn',
@@ -88,7 +97,7 @@ class DeploymentAdmin extends LeftAndMain
         $actions = FieldList::create(
             LiteralField::create(
                 'run-button',
-                $btn1 . $btn2 . $envButton . $syncButton . $syncGatekeeperButton
+                $btn1 . $btn2 . $envButton . $holdingButton . $syncButton . $syncGatekeeperButton
             )
         );
 
@@ -121,6 +130,32 @@ class DeploymentAdmin extends LeftAndMain
         try {
             $helper = DeploymentHelper::create();
             $helper->processENVFiles();
+
+            return HTTPResponse::create()
+                ->addHeader('Content-Type', 'application/json')
+                ->setBody(json_encode([
+                    'html' => $helper->getMessages(),
+                    'status' => 'success',
+                ]));
+        } catch (Exception $e) {
+            Injector::inst()->get(LoggerInterface::class)->error($e->getMessage());
+            $this->jsonError(500, $e->getMessage());
+        }
+    }
+
+    public function syncHoldingPages(HTTPRequest $request)
+    {
+        if (!$this->canView()) {
+            $this->jsonError(403, 'Permission denied');
+        }
+
+        if (!$request->isPOST()) {
+            $this->jsonError(405, 'Method not allowed');
+        }
+
+        try {
+            $helper = DeploymentHelper::create();
+            $helper->processHoldingPages();
 
             return HTTPResponse::create()
                 ->addHeader('Content-Type', 'application/json')

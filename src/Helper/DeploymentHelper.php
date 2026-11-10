@@ -202,6 +202,27 @@ class DeploymentHelper
 
     }
 
+    /**
+     * Publish changed custom holding pages only, without rebuilding Caddy config.
+     */
+    public function processHoldingPages(): void
+    {
+        $helper = HoldingPageHelper::create();
+        $sites = Versioned::get_by_stage(VirtualHost::class, 'Live');
+        $updated = 0;
+
+        foreach ($sites as $site) {
+            $updated += $helper->sync($site);
+        }
+
+        $this->addMessage('------------------------------------');
+        $this->addMessage('Holding pages');
+        $this->addMessage($updated > 0
+            ? sprintf('Published %d holding page update(s).', $updated)
+            : 'No holding pages required updating.');
+        $this->addMessage('------------------------------------');
+    }
+
     private function getGlobalBlock()
     {
         $config = SiteConfig::current_site_config();
