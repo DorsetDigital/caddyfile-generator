@@ -15,8 +15,9 @@ class HoldingPageHelper
 {
     use Injectable;
 
-    public function sync(VirtualHost $site): void
+    public function sync(VirtualHost $site): int
     {
+        $updated = 0;
         foreach ([
             ['MaintenanceHTML', 'MaintenanceHTMLSignature', 'maintenance'],
             ['ComingSoonHTML', 'ComingSoonHTMLSignature', 'coming-soon'],
@@ -31,6 +32,7 @@ class HoldingPageHelper
                     $site->$signatureField = null;
                     $site->write();
                     $site->publishSingle();
+                    $updated++;
                 }
                 continue;
             }
@@ -73,6 +75,9 @@ class HoldingPageHelper
             $site->$signatureField = $signature;
             $site->write();
             $site->publishSingle();
+            $updated++;
         }
+
+        return $updated;
     }
 }
